@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Follow `PLAN.md` for implementation order, architectural decisions, and workflow details.
+
 ## Project Overview
 
 A locally-hosted fullstack tax return agent. Privacy-first: all data stays on the user's machine. Not enterprise SaaS.
