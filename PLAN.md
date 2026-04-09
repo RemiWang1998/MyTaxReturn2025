@@ -266,6 +266,7 @@ The `irs-taxpayer-mcp` server runs as a sidecar Node.js process. The backend com
 4. **LLM Vision over OCR** for parsing — understands layout + content in one call, ~$0.01-0.05/doc
 5. **OLT credentials never stored** — React state only, sent per-session, discarded after
 6. **Agent stops before submit** — user must manually click final submit on olt.com
+7. **Chinese language support** — UI and all user-facing text support Simplified Chinese (zh-CN); LLM prompts handle Chinese-language tax documents; i18n via `next-intl` in the frontend
 
 ---
 
