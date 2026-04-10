@@ -214,24 +214,24 @@ The `irs-taxpayer-mcp` server runs as a sidecar Node.js process. The backend com
 
 ## Implementation Order
 
-### Phase 1: Scaffolding
+### Phase 1: Scaffolding ✅
 - `git init`, `.gitignore`, `.env.example`
 - Backend: `pyproject.toml` with deps (fastapi, uvicorn, sqlalchemy, cryptography, pymupdf, browser-use, langchain-anthropic, langchain-openai, python-multipart, sse-starlette, mcp)
 - Frontend: `npx create-next-app@latest` (TS, Tailwind, App Router) + shadcn/ui init
 - `docker-compose.yml`, Dockerfiles, `scripts/dev.sh`
 
-### Phase 2: Backend Core
-- `config.py`, `database.py`, `security.py`
-- All SQLAlchemy models + initial schema creation
-- `main.py` with CORS, lifespan, router mounting
-- `routers/api_keys.py` — full CRUD
-- `services/llm_factory.py` — create LLM from stored keys
+### Phase 2: Backend Core ⬜ (mostly done)
+- ✅ `config.py`, `database.py`, `security.py`
+- ✅ All SQLAlchemy models + initial schema creation
+- ✅ `main.py` with CORS, lifespan, router mounting
+- ✅ `services/llm_factory.py` — create LLM from stored keys
+- ⬜ `routers/api_keys.py` — full CRUD
 
-### Phase 3: Document Upload & Parsing
-- `routers/documents.py` — upload with validation, ZIP handling
-- `services/document_parser.py` — PDF→images, LLM vision extraction
-- Prompt templates for W-2, 1099 family
-- `routers/extraction.py` — trigger/get/edit extraction results
+### Phase 3: Document Upload & Parsing ✅
+- ✅ `routers/documents.py` — upload with validation, ZIP handling
+- ✅ `services/document_parser.py` — PDF→images, LLM vision extraction
+- ✅ Prompt templates for W-2, 1099 family (W-2, 1099-INT/DIV/B/R/S/MISC/NEC/DA/G)
+- ✅ `routers/extraction.py` — trigger/get/edit extraction results
 
 ### Phase 4: Tax Aggregation & MCP Integration
 - `services/tax_aggregator.py` — merge all extracted data
