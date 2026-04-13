@@ -48,6 +48,7 @@
     "uploading": "上传中…",
     "extract": "提取",
     "extracting": "提取中…",
+    "reExtract": "重新提取",
     "extractAll": "批量提取",
     "extractingAll": "提取中…",
     "noDocuments": "暂无文件。",

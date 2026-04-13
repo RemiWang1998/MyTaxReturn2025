@@ -48,6 +48,7 @@
     "uploading": "Uploading…",
     "extract": "Extract",
     "extracting": "Extracting…",
+    "reExtract": "Re-extract",
     "extractAll": "Extract All",
     "extractingAll": "Extracting…",
     "noDocuments": "No documents yet.",

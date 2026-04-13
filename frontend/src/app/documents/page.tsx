@@ -161,6 +161,16 @@ export default function DocumentsPage() {
                   {extracting[doc.id] ? t('extracting') : t('extract')}
                 </Button>
               )}
+              {(doc.status === 'extracted' || doc.status === 'error') && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => handleExtract(doc.id)}
+                  disabled={extracting[doc.id]}
+                >
+                  {extracting[doc.id] ? t('extracting') : t('reExtract')}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon-xs"
