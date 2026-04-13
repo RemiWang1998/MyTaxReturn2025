@@ -3,7 +3,7 @@
     "title": "美国报税 2025",
     "subtitle": "本地运行",
     "dashboard": "概览",
-    "documents": "文件",
+    "documents": "文件与审阅",
     "review": "核查",
     "calculate": "计算",
     "filing": "申报",
@@ -17,7 +17,7 @@
     "statRefund": "预计退税",
     "steps": "步骤",
     "step1": "添加 API 密钥",
-    "step2": "上传文件",
+    "step2": "上传文件并审阅",
     "step3": "核查提取数据",
     "step4": "计算税额",
     "step5": "提交申报"

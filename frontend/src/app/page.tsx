@@ -22,14 +22,13 @@ export default function DashboardPage() {
   }, [])
 
   const extracted = docs.filter((d) => d.status === 'extracted').length
-  const stepDone = [hasApiKey, docs.length > 0, extracted > 0, !!summary?.estimated_tax, false]
+  const stepDone = [hasApiKey, docs.length > 0, !!summary?.estimated_tax, false]
 
   const steps = [
     { num: 1, label: t('step1'), href: '/settings' },
     { num: 2, label: t('step2'), href: '/documents' },
-    { num: 3, label: t('step3'), href: '/review' },
-    { num: 4, label: t('step4'), href: '/calculate' },
-    { num: 5, label: t('step5'), href: '/filing' },
+    { num: 3, label: t('step4'), href: '/calculate' },
+    { num: 4, label: t('step5'), href: '/filing' },
   ]
 
   return (

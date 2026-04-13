@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 const LOCALES = [
   { value: 'en', label: 'English' },
   { value: 'zh-CN', label: '简体中文' },
+  { value: 'zh-TW', label: '繁體中文' },
 ]
 
 export function LanguageToggle({ current, label }: { current: string; label: string }) {

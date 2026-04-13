@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, FileText, Eye, Calculator, Send, Settings } from 'lucide-react'
+import { LayoutDashboard, FileText, Calculator, Send, Settings } from 'lucide-react'
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -12,7 +12,6 @@ export function Sidebar() {
   const navItems = [
     { href: '/', label: t('dashboard'), icon: LayoutDashboard },
     { href: '/documents', label: t('documents'), icon: FileText },
-    { href: '/review', label: t('review'), icon: Eye },
     { href: '/calculate', label: t('calculate'), icon: Calculator },
     { href: '/filing', label: t('filing'), icon: Send },
     { href: '/settings', label: t('settings'), icon: Settings },

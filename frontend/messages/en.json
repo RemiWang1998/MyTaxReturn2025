@@ -3,7 +3,7 @@
     "title": "US Tax Return",
     "subtitle": "2025 · Local",
     "dashboard": "Dashboard",
-    "documents": "Documents",
+    "documents": "Documents & Review",
     "review": "Review",
     "calculate": "Calculate",
     "filing": "Filing",
@@ -17,7 +17,7 @@
     "statRefund": "Est. Refund",
     "steps": "Steps",
     "step1": "Add API Key",
-    "step2": "Upload Documents",
+    "step2": "Upload Documents and Review",
     "step3": "Review Extracted Data",
     "step4": "Calculate Tax",
     "step5": "File Return"
