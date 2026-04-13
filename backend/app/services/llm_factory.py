@@ -27,5 +27,8 @@ async def get_llm(db: AsyncSession, provider: str | None = None) -> Any:
     elif key_row.provider == "openai":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(api_key=api_key, model=model_name)
+    elif key_row.provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(google_api_key=api_key, model=model_name)
     else:
         raise ValueError(f"Unsupported provider: {key_row.provider}")

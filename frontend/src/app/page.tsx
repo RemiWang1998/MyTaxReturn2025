@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { documents, taxReturn } from '@/lib/api'
+import { apiKeys, documents, taxReturn } from '@/lib/api'
 import type { Document, TaxSummary } from '@/lib/api'
 
 const steps = [
@@ -16,17 +16,19 @@ const steps = [
 export default function DashboardPage() {
   const [docs, setDocs] = useState<Document[]>([])
   const [summary, setSummary] = useState<TaxSummary | null>(null)
+  const [hasApiKey, setHasApiKey] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.allSettled([
       documents.list().then(setDocs),
       taxReturn.summary().then(setSummary),
+      apiKeys.list().then((keys) => setHasApiKey(keys.length > 0)),
     ]).finally(() => setLoading(false))
   }, [])
 
   const extracted = docs.filter((d) => d.status === 'extracted').length
-  const stepDone = [false, docs.length > 0, extracted > 0, !!summary?.estimated_tax, false]
+  const stepDone = [hasApiKey, docs.length > 0, extracted > 0, !!summary?.estimated_tax, false]
 
   return (
     <div className="max-w-xl space-y-6">
@@ -55,18 +57,22 @@ export default function DashboardPage() {
             <li key={step.num}>
               <Link
                 href={step.href}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border hover:bg-accent transition-colors text-sm"
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors text-sm ${
+                  stepDone[i]
+                    ? 'border-green-200 bg-green-50 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/40 dark:hover:bg-green-950/60'
+                    : 'border-border hover:bg-accent'
+                }`}
               >
                 <span
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
                     stepDone[i]
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-green-600 text-white'
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {stepDone[i] ? '✓' : step.num}
                 </span>
-                <span className={stepDone[i] ? 'text-foreground' : 'text-muted-foreground'}>
+                <span className={stepDone[i] ? 'text-green-800 dark:text-green-300 font-medium' : 'text-muted-foreground'}>
                   {step.label}
                 </span>
               </Link>

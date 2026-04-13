@@ -5,8 +5,9 @@ import { apiKeys } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 
 const PROVIDERS = [
-  { value: 'anthropic', label: 'Anthropic', defaultModel: 'claude-opus-4-6' },
-  { value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o' },
+  { value: 'anthropic', label: 'Anthropic', defaultModel: 'claude-opus-4-6', keyPlaceholder: 'sk-ant-…' },
+  { value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o', keyPlaceholder: 'sk-…' },
+  { value: 'gemini', label: 'Google Gemini', defaultModel: 'gemini-2.5-flash', keyPlaceholder: 'AIza…' },
 ]
 
 type Status = 'idle' | 'testing' | 'saving' | 'ok' | 'error'
@@ -118,7 +119,7 @@ export default function SettingsPage() {
             value={form.api_key}
             onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))}
             className="w-full border border-input rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="sk-…"
+            placeholder={PROVIDERS.find((p) => p.value === form.provider)?.keyPlaceholder ?? '…'}
             required
           />
         </div>

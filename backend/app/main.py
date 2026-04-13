@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
-from app.routers import documents, extraction, tax_return
+from app.routers import api_keys, documents, extraction, tax_return
 
 
 @asynccontextmanager
@@ -25,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(api_keys.router)
 app.include_router(documents.router)
 app.include_router(extraction.router)
 app.include_router(tax_return.router)
