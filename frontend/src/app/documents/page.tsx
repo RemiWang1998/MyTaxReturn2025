@@ -41,10 +41,13 @@ export default function DocumentsPage() {
     documents.list().then((all) => {
       setDocs(all)
       const extracted = all.filter((d) => d.status === 'extracted')
-      Promise.allSettled(extracted.map((d) => extraction.result(d.id))).then((results) => {
+      Promise.allSettled(extracted.map((d) => extraction.results(d.id))).then((settled) => {
         const map: Record<string, number> = {}
-        results.forEach((r, i) => {
-          if (r.status === 'fulfilled') map[extracted[i].id] = (r.value as ExtractionResult).confidence
+        settled.forEach((r, i) => {
+          if (r.status === 'fulfilled') {
+            const arr = r.value as ExtractionResult[]
+            if (arr.length > 0) map[extracted[i].id] = Math.min(...arr.map((x) => x.confidence))
+          }
         })
         setConfidences(map)
       })

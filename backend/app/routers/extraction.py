@@ -10,6 +10,20 @@ from app.services.document_parser import parse_document
 router = APIRouter(prefix="/api/extraction", tags=["extraction"])
 
 
+def _result_to_dict(row: ExtractedData) -> dict:
+    return {
+        "id": row.id,
+        "document_id": row.document_id,
+        "form_type": row.form_type,
+        "data": json.loads(row.data_json),
+        "confidence": row.confidence,
+        "field_confidences": json.loads(row.field_confidences) if row.field_confidences else {},
+        "user_verified": row.user_verified,
+        "created_at": getattr(row, "created_at", None),
+        "updated_at": getattr(row, "updated_at", None),
+    }
+
+
 async def _run_extraction(doc_id: int) -> None:
     async with AsyncSessionLocal() as db:
         doc = await db.get(Document, doc_id)
@@ -44,53 +58,34 @@ async def run_extraction(
 
 
 @router.get("/{doc_id}/result")
-async def get_extraction_result(doc_id: int, db: AsyncSession = Depends(get_db)):
+async def get_extraction_results(doc_id: int, db: AsyncSession = Depends(get_db)):
+    """Return all extraction results for a document (one for simple forms, multiple for consolidated)."""
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    result = await db.execute(select(ExtractedData).where(ExtractedData.document_id == doc_id))
-    extracted = result.scalars().first()
-    if not extracted:
-        raise HTTPException(status_code=404, detail="No extraction result yet")
-
-    return {
-        "id": extracted.id,
-        "document_id": extracted.document_id,
-        "form_type": extracted.form_type,
-        "data": json.loads(extracted.data_json),
-        "confidence": extracted.confidence,
-        "field_confidences": json.loads(extracted.field_confidences) if extracted.field_confidences else {},
-        "user_verified": extracted.user_verified,
-        "created_at": extracted.created_at,
-        "updated_at": extracted.updated_at,
-    }
+    result = await db.execute(
+        select(ExtractedData)
+        .where(ExtractedData.document_id == doc_id)
+        .order_by(ExtractedData.id)
+    )
+    rows = result.scalars().all()
+    return [_result_to_dict(r) for r in rows]
 
 
-@router.put("/{doc_id}/result")
+@router.put("/results/{result_id}")
 async def update_extraction_result(
-    doc_id: int,
+    result_id: int,
     payload: dict,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(ExtractedData).where(ExtractedData.document_id == doc_id))
-    extracted = result.scalars().first()
+    """Update a specific extraction result by its ID."""
+    extracted = await db.get(ExtractedData, result_id)
     if not extracted:
-        raise HTTPException(status_code=404, detail="No extraction result found")
+        raise HTTPException(status_code=404, detail="Extraction result not found")
 
-    if "data" in payload:
-        extracted.data_json = json.dumps(payload["data"])
+    extracted.data_json = json.dumps(payload)
     extracted.user_verified = True
     await db.commit()
     await db.refresh(extracted)
-
-    return {
-        "id": extracted.id,
-        "document_id": extracted.document_id,
-        "form_type": extracted.form_type,
-        "data": json.loads(extracted.data_json),
-        "confidence": extracted.confidence,
-        "field_confidences": json.loads(extracted.field_confidences) if extracted.field_confidences else {},
-        "user_verified": extracted.user_verified,
-        "updated_at": extracted.updated_at,
-    }
+    return _result_to_dict(extracted)

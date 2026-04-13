@@ -15,10 +15,12 @@ function confidenceBorder(conf: number) {
 export default function ReviewPage() {
   const t = useTranslations('review')
   const [docs, setDocs] = useState<Document[]>([])
-  const [results, setResults] = useState<Record<string, ExtractionResult>>({})
+  const [results, setResults] = useState<Record<string, ExtractionResult[]>>({})
+  // edits and saving are keyed by extraction result ID (string)
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({})
   const [saving, setSaving] = useState<Record<string, boolean>>({})
   const [selected, setSelected] = useState<string | null>(null)
+  const [subIdx, setSubIdx] = useState(0)
 
   useEffect(() => {
     documents.list().then((all) => {
@@ -26,32 +28,45 @@ export default function ReviewPage() {
       setDocs(extracted)
       if (extracted.length > 0) setSelected(extracted[0].id)
       Promise.all(
-        extracted.map((d) => extraction.result(d.id).then((r) => ({ id: d.id, r })))
+        extracted.map((d) => extraction.results(d.id).then((r) => ({ id: d.id, r })))
       ).then((pairs) => {
-        const map: Record<string, ExtractionResult> = {}
+        const map: Record<string, ExtractionResult[]> = {}
         pairs.forEach(({ id, r }) => { map[id] = r })
         setResults(map)
       })
     })
   }, [])
 
-  function setEdit(docId: string, field: string, value: string) {
-    setEdits((e) => ({ ...e, [docId]: { ...e[docId], [field]: value } }))
+  function handleSelectDoc(docId: string) {
+    setSelected(docId)
+    setSubIdx(0)
   }
 
-  async function handleSave(docId: string) {
-    const result = results[docId]
-    if (!result) return
-    setSaving((s) => ({ ...s, [docId]: true }))
-    const merged = { ...result.data, ...edits[docId] }
+  function setEdit(resultId: string, field: string, value: string) {
+    setEdits((e) => ({ ...e, [resultId]: { ...e[resultId], [field]: value } }))
+  }
+
+  async function handleSave(result: ExtractionResult) {
+    const rid = String(result.id)
+    setSaving((s) => ({ ...s, [rid]: true }))
+    const resultEdits = edits[rid] ?? {}
+    const merged = { ...result.data, ...resultEdits }
     try {
-      const updated = await extraction.update(docId, merged)
-      setResults((r) => ({ ...r, [docId]: updated }))
-      setEdits((e) => ({ ...e, [docId]: {} }))
+      const updated = await extraction.update(rid, merged)
+      setResults((prev) => {
+        const docResults = prev[String(result.document_id)] ?? []
+        return {
+          ...prev,
+          [String(result.document_id)]: docResults.map((r) =>
+            r.id === result.id ? updated : r
+          ),
+        }
+      })
+      setEdits((e) => ({ ...e, [rid]: {} }))
     } catch (err) {
       alert(String(err))
     } finally {
-      setSaving((s) => ({ ...s, [docId]: false }))
+      setSaving((s) => ({ ...s, [rid]: false }))
     }
   }
 
@@ -59,16 +74,16 @@ export default function ReviewPage() {
     return (
       <div className="max-w-2xl space-y-2">
         <h1 className="text-xl font-semibold">{t('emptyHeading')}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t('emptyBody')}
-        </p>
+        <p className="text-sm text-muted-foreground">{t('emptyBody')}</p>
       </div>
     )
   }
 
-  const result = selected ? results[selected] : null
-  const docEdits = selected ? (edits[selected] ?? {}) : {}
-  const hasEdits = Object.keys(docEdits).length > 0
+  const docResults = selected ? (results[selected] ?? []) : []
+  const result = docResults[subIdx] ?? null
+  const rid = result ? String(result.id) : ''
+  const resultEdits = rid ? (edits[rid] ?? {}) : {}
+  const hasEdits = Object.keys(resultEdits).length > 0
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -77,11 +92,12 @@ export default function ReviewPage() {
         <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
+      {/* Document tabs */}
       <div className="flex gap-2 flex-wrap">
         {docs.map((doc) => (
           <button
             key={doc.id}
-            onClick={() => setSelected(doc.id)}
+            onClick={() => handleSelectDoc(doc.id)}
             className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
               selected === doc.id
                 ? 'bg-primary text-primary-foreground border-primary'
@@ -92,6 +108,25 @@ export default function ReviewPage() {
           </button>
         ))}
       </div>
+
+      {/* Sub-form tabs (only if document has multiple results) */}
+      {docResults.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap">
+          {docResults.map((r, i) => (
+            <button
+              key={r.id}
+              onClick={() => setSubIdx(i)}
+              className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors uppercase ${
+                subIdx === i
+                  ? 'bg-primary/10 border-primary text-primary'
+                  : 'border-border text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {r.form_type}
+            </button>
+          ))}
+        </div>
+      )}
 
       {selected && result ? (
         <div className="space-y-3">
@@ -107,10 +142,10 @@ export default function ReviewPage() {
             </div>
             <Button
               size="sm"
-              onClick={() => handleSave(selected)}
-              disabled={saving[selected] || !hasEdits}
+              onClick={() => handleSave(result)}
+              disabled={saving[rid] || !hasEdits}
             >
-              {saving[selected] ? t('saving') : t('saveChanges')}
+              {saving[rid] ? t('saving') : t('saveChanges')}
             </Button>
           </div>
 
@@ -118,7 +153,7 @@ export default function ReviewPage() {
             {Object.entries(result.data).map(([field, value]) => {
               const conf = result.field_confidences[field] ?? 1
               const current =
-                docEdits[field] !== undefined ? docEdits[field] : String(value ?? '')
+                resultEdits[field] !== undefined ? resultEdits[field] : String(value ?? '')
               return (
                 <div key={field} className={`border rounded-md p-2.5 ${confidenceBorder(conf)}`}>
                   <div className="flex items-center justify-between mb-1">
@@ -134,7 +169,7 @@ export default function ReviewPage() {
                   <input
                     type="text"
                     value={current}
-                    onChange={(e) => setEdit(selected, field, e.target.value)}
+                    onChange={(e) => setEdit(rid, field, e.target.value)}
                     className="w-full text-sm bg-transparent outline-none text-foreground"
                   />
                 </div>
@@ -142,7 +177,7 @@ export default function ReviewPage() {
             })}
           </div>
         </div>
-      ) : selected && !result ? (
+      ) : selected && docResults.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('loading')}</p>
       ) : null}
     </div>

@@ -2,7 +2,7 @@ import json
 import base64
 from pathlib import Path
 from typing import Any
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.messages import HumanMessage
 from app.models.document import Document
@@ -13,6 +13,8 @@ from app.prompts.form1099_extraction import (
     FORM_1099_NEC_PROMPT,
     FORM_1099_INT_PROMPT,
     FORM_1099_DIV_PROMPT,
+    FORM_1099_MISC_PROMPT,
+    FORM_1099_B_PROMPT,
     FORM_1099_DA_PROMPT,
     FORM_1099_G_PROMPT,
 )
@@ -22,6 +24,8 @@ PROMPT_MAP: dict[str, str] = {
     "1099-nec": FORM_1099_NEC_PROMPT,
     "1099-int": FORM_1099_INT_PROMPT,
     "1099-div": FORM_1099_DIV_PROMPT,
+    "1099-misc": FORM_1099_MISC_PROMPT,
+    "1099-b": FORM_1099_B_PROMPT,
     "1099-da": FORM_1099_DA_PROMPT,
     "1099-g": FORM_1099_G_PROMPT,
 }
@@ -33,9 +37,36 @@ Return ONLY one of these exact strings (no other text):
   1099-nec
   1099-int
   1099-div
+  1099-misc
+  1099-b
   1099-da
   1099-g
+  1099-consolidated
   other
+"""
+
+CONSOLIDATED_SUBFORMS_PROMPT = """\
+This is a consolidated 1099 tax statement. Look through all pages and identify which \
+1099 sub-forms are present.
+
+Return a JSON array containing ONLY the form types found. Use these exact strings:
+  "1099-div"
+  "1099-int"
+  "1099-misc"
+  "1099-b"
+  "1099-nec"
+  "1099-da"
+  "1099-g"
+
+Example: ["1099-div", "1099-int", "1099-b"]
+Return ONLY the JSON array, no other text.
+"""
+
+CONSOLIDATED_EXTRACTION_PREFIX = """\
+This is a consolidated 1099 tax statement containing multiple sub-forms across \
+several pages. Focus ONLY on the {form_name} section and extract those fields. \
+Ignore data from other sections.
+
 """
 
 
@@ -56,11 +87,12 @@ def _b64(image_bytes: bytes) -> str:
     return base64.b64encode(image_bytes).decode()
 
 
-def _image_message(prompt: str, image_b64: str, media_type: str) -> HumanMessage:
-    return HumanMessage(content=[
-        {"type": "text", "text": prompt},
-        {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{image_b64}"}},
-    ])
+def _image_message(prompt: str, images: list[tuple[str, str]]) -> HumanMessage:
+    """Create a message with prompt text and one or more base64-encoded images."""
+    content: list[dict] = [{"type": "text", "text": prompt}]
+    for b64_data, media_type in images:
+        content.append({"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64_data}"}})
+    return HumanMessage(content=content)
 
 
 def _strip_fences(text: str) -> str:
@@ -68,7 +100,6 @@ def _strip_fences(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
-        # drop first line (``` or ```json) and last ``` if present
         start = 1
         end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
         text = "\n".join(lines[start:end])
@@ -81,42 +112,8 @@ def _compute_overall_confidence(field_confidences: dict[str, float]) -> float:
     return sum(field_confidences.values()) / len(field_confidences)
 
 
-async def _detect_form_type(llm: Any, image_b64: str, media_type: str) -> str:
-    response = await llm.ainvoke([_image_message(FORM_DETECTION_PROMPT, image_b64, media_type)])
-    return response.content.strip().lower()
-
-
-async def _extract_fields(llm: Any, image_b64: str, media_type: str, form_type: str) -> dict:
-    prompt = PROMPT_MAP.get(form_type, PROMPT_MAP.get("w2", next(iter(PROMPT_MAP.values()))))
-    response = await llm.ainvoke([_image_message(prompt, image_b64, media_type)])
-    return json.loads(_strip_fences(response.content))
-
-
-async def parse_document(doc: Document, db: AsyncSession) -> ExtractedData:
-    """Run LLM vision extraction on a document and upsert the result into extracted_data."""
-    llm = await get_llm(db)
-    file_path = Path(doc.file_path)
-
-    if doc.file_type == "pdf":
-        pages = _pdf_to_images(file_path)
-        image_bytes = pages[0]
-        media_type = "image/png"
-    else:
-        image_bytes = file_path.read_bytes()
-        media_type = f"image/{doc.file_type}"
-
-    image_b64 = _b64(image_bytes)
-
-    # Detect form type if not already set
-    form_type = doc.doc_type
-    if not form_type:
-        detected = await _detect_form_type(llm, image_b64, media_type)
-        form_type = detected if detected in PROMPT_MAP else "other"
-        doc.doc_type = form_type
-
-    raw_data = await _extract_fields(llm, image_b64, media_type, form_type)
-
-    # Split {"field": {"value": ..., "confidence": ...}} into separate dicts
+def _parse_raw_fields(raw_data: dict) -> tuple[dict[str, Any], dict[str, float], float]:
+    """Split {field: {value, confidence}} into clean data, field confidences, overall."""
     field_confidences: dict[str, float] = {}
     clean_data: dict[str, Any] = {}
     for field, val in raw_data.items():
@@ -125,30 +122,107 @@ async def parse_document(doc: Document, db: AsyncSession) -> ExtractedData:
             clean_data[field] = val.get("value")
         else:
             clean_data[field] = val
+    return clean_data, field_confidences, _compute_overall_confidence(field_confidences)
 
-    overall_confidence = _compute_overall_confidence(field_confidences)
 
-    # Upsert
-    result = await db.execute(select(ExtractedData).where(ExtractedData.document_id == doc.id))
-    extracted = result.scalars().first()
+# ── LLM calls ─────────────────────────────────────────────────────────────
 
-    if extracted:
-        extracted.form_type = form_type
-        extracted.data_json = json.dumps(clean_data)
-        extracted.confidence = overall_confidence
-        extracted.field_confidences = json.dumps(field_confidences)
-        extracted.user_verified = False
+async def _detect_form_type(llm: Any, images: list[tuple[str, str]]) -> str:
+    response = await llm.ainvoke([_image_message(FORM_DETECTION_PROMPT, images)])
+    return response.content.strip().lower()
+
+
+async def _detect_subforms(llm: Any, images: list[tuple[str, str]]) -> list[str]:
+    response = await llm.ainvoke([_image_message(CONSOLIDATED_SUBFORMS_PROMPT, images)])
+    result = json.loads(_strip_fences(response.content))
+    return [f for f in result if f in PROMPT_MAP]
+
+
+async def _extract_fields(
+    llm: Any,
+    images: list[tuple[str, str]],
+    form_type: str,
+    consolidated: bool = False,
+) -> dict:
+    prompt = PROMPT_MAP.get(form_type, PROMPT_MAP["w2"])
+    if consolidated:
+        form_name = form_type.upper()
+        prompt = CONSOLIDATED_EXTRACTION_PREFIX.format(form_name=form_name) + prompt
+    response = await llm.ainvoke([_image_message(prompt, images)])
+    return json.loads(_strip_fences(response.content))
+
+
+# ── Main entry point ──────────────────────────────────────────────────────
+
+async def parse_document(doc: Document, db: AsyncSession) -> list[ExtractedData]:
+    """Run LLM vision extraction on a document. Returns one or more ExtractedData rows.
+
+    For consolidated 1099 statements the parser detects sub-forms and extracts each
+    one separately, storing a distinct ExtractedData row per sub-form.
+    """
+    llm = await get_llm(db)
+    file_path = Path(doc.file_path)
+
+    # Build image list
+    if doc.file_type == "pdf":
+        page_images = _pdf_to_images(file_path)
+        media_type = "image/png"
     else:
-        extracted = ExtractedData(
+        page_images = [file_path.read_bytes()]
+        media_type = f"image/{doc.file_type}"
+
+    images = [(_b64(img), media_type) for img in page_images]
+
+    # Detect form type (use first page for speed)
+    form_type = doc.doc_type
+    if not form_type:
+        detected = await _detect_form_type(llm, images[:1])
+        if detected in PROMPT_MAP or detected == "1099-consolidated":
+            form_type = detected
+        else:
+            form_type = "other"
+        doc.doc_type = form_type
+
+    # Delete previous extraction results for this document (clean slate on re-extract)
+    await db.execute(delete(ExtractedData).where(ExtractedData.document_id == doc.id))
+
+    results: list[ExtractedData] = []
+
+    if form_type == "1099-consolidated":
+        # Detect which sub-forms are present (send all pages)
+        subforms = await _detect_subforms(llm, images)
+        if not subforms:
+            # LLM couldn't identify sub-forms — fall back to common ones
+            subforms = ["1099-div", "1099-int", "1099-b"]
+
+        for sf in subforms:
+            raw_data = await _extract_fields(llm, images, sf, consolidated=True)
+            clean_data, field_confs, overall = _parse_raw_fields(raw_data)
+            row = ExtractedData(
+                document_id=doc.id,
+                form_type=sf,
+                data_json=json.dumps(clean_data),
+                confidence=overall,
+                field_confidences=json.dumps(field_confs),
+            )
+            db.add(row)
+            results.append(row)
+    else:
+        # Single form — first page is usually sufficient
+        raw_data = await _extract_fields(llm, images[:1], form_type)
+        clean_data, field_confs, overall = _parse_raw_fields(raw_data)
+        row = ExtractedData(
             document_id=doc.id,
             form_type=form_type,
             data_json=json.dumps(clean_data),
-            confidence=overall_confidence,
-            field_confidences=json.dumps(field_confidences),
+            confidence=overall,
+            field_confidences=json.dumps(field_confs),
         )
-        db.add(extracted)
+        db.add(row)
+        results.append(row)
 
     doc.status = "extracted"
     await db.commit()
-    await db.refresh(extracted)
-    return extracted
+    for r in results:
+        await db.refresh(r)
+    return results

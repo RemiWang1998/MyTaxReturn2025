@@ -43,9 +43,9 @@ export const documents = {
 // --- Extraction endpoints ---
 export const extraction = {
   run: (docId: string) => request<{ job_id: string }>(`/api/extraction/${docId}/run`, { method: "POST" }),
-  result: (docId: string) => request<ExtractionResult>(`/api/extraction/${docId}/result`),
-  update: (docId: string, data: Record<string, unknown>) =>
-    request<ExtractionResult>(`/api/extraction/${docId}/result`, { method: "PUT", body: JSON.stringify(data) }),
+  results: (docId: string) => request<ExtractionResult[]>(`/api/extraction/${docId}/result`),
+  update: (resultId: string, data: Record<string, unknown>) =>
+    request<ExtractionResult>(`/api/extraction/results/${resultId}`, { method: "PUT", body: JSON.stringify(data) }),
 };
 
 // --- Tax return endpoints ---
