@@ -254,8 +254,8 @@ The `irs-taxpayer-mcp` server runs as a sidecar Node.js process. The backend com
 
 ### Phase 7: Polish
 - Error handling, loading states
-- `scripts/setup.sh` (installs Python deps, Node deps, Playwright browsers)
-- Docker setup (note: for browser agent, native backend recommended over Docker)
+- ✅ `scripts/setup.sh` (installs Python deps, Node deps, Playwright browsers)
+- ✅ Docker setup (note: for browser agent, native backend recommended over Docker)
 
 ---
 
