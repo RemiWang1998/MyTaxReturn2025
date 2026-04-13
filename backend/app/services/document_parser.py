@@ -13,6 +13,8 @@ from app.prompts.form1099_extraction import (
     FORM_1099_NEC_PROMPT,
     FORM_1099_INT_PROMPT,
     FORM_1099_DIV_PROMPT,
+    FORM_1099_DA_PROMPT,
+    FORM_1099_G_PROMPT,
 )
 
 PROMPT_MAP: dict[str, str] = {
@@ -20,6 +22,8 @@ PROMPT_MAP: dict[str, str] = {
     "1099-nec": FORM_1099_NEC_PROMPT,
     "1099-int": FORM_1099_INT_PROMPT,
     "1099-div": FORM_1099_DIV_PROMPT,
+    "1099-da": FORM_1099_DA_PROMPT,
+    "1099-g": FORM_1099_G_PROMPT,
 }
 
 FORM_DETECTION_PROMPT = """\
@@ -29,6 +33,8 @@ Return ONLY one of these exact strings (no other text):
   1099-nec
   1099-int
   1099-div
+  1099-da
+  1099-g
   other
 """
 
@@ -81,7 +87,7 @@ async def _detect_form_type(llm: Any, image_b64: str, media_type: str) -> str:
 
 
 async def _extract_fields(llm: Any, image_b64: str, media_type: str, form_type: str) -> dict:
-    prompt = PROMPT_MAP.get(form_type, PROMPT_MAP["w2"])
+    prompt = PROMPT_MAP.get(form_type, PROMPT_MAP.get("w2", next(iter(PROMPT_MAP.values()))))
     response = await llm.ainvoke([_image_message(prompt, image_b64, media_type)])
     return json.loads(_strip_fences(response.content))
 
@@ -105,7 +111,7 @@ async def parse_document(doc: Document, db: AsyncSession) -> ExtractedData:
     form_type = doc.doc_type
     if not form_type:
         detected = await _detect_form_type(llm, image_b64, media_type)
-        form_type = detected if detected in PROMPT_MAP else "w2"
+        form_type = detected if detected in PROMPT_MAP else "other"
         doc.doc_type = form_type
 
     raw_data = await _extract_fields(llm, image_b64, media_type, form_type)

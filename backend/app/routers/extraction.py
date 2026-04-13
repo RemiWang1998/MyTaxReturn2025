@@ -36,6 +36,7 @@ async def run_extraction(
         raise HTTPException(status_code=409, detail="Extraction already in progress")
 
     doc.status = "extracting"
+    doc.doc_type = None  # clear cached type so detection re-runs
     await db.commit()
 
     background_tasks.add_task(_run_extraction, doc_id)
