@@ -5,7 +5,6 @@ Return a JSON object with exactly this structure:
 {
   "payer_name": {"value": "Acme Corp", "confidence": 0.95},
   "payer_tin": {"value": "12-3456789", "confidence": 0.90},
-  "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "recipient_name": {"value": "Jane Doe", "confidence": 0.95},
   "nonemployee_compensation": {"value": 12000.00, "confidence": 0.99},
   "federal_tax_withheld": {"value": 0.0, "confidence": 0.99}
@@ -15,7 +14,6 @@ Rules:
 - Numeric fields must be numbers, not strings
 - If a field is absent, use {"value": null, "confidence": 0.0}
 - "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
-- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - Return ONLY the JSON object, no markdown fences or other text
 """
 
@@ -25,7 +23,7 @@ Return a JSON object with exactly this structure:
 
 {
   "payer_name": {"value": "First National Bank", "confidence": 0.95},
-  "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
+  "payer_tin": {"value": "12-3456789", "confidence": 0.90},
   "interest_income": {"value": 450.12, "confidence": 0.99},
   "early_withdrawal_penalty": {"value": 0.0, "confidence": 0.99},
   "us_savings_bonds_interest": {"value": 0.0, "confidence": 0.99},
@@ -35,6 +33,7 @@ Return a JSON object with exactly this structure:
 Rules:
 - Numeric fields must be numbers, not strings
 - If a field is absent, use {"value": null, "confidence": 0.0}
+- "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
 - Return ONLY the JSON object, no markdown fences or other text
 """
 
@@ -44,7 +43,6 @@ Return a JSON object with exactly this structure:
 
 {
   "payer_name": {"value": "Vanguard", "confidence": 0.95},
-  "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "ordinary_dividends": {"value": 1250.00, "confidence": 0.99},
   "qualified_dividends": {"value": 1100.00, "confidence": 0.99},
   "total_capital_gain": {"value": 0.0, "confidence": 0.99},
@@ -64,7 +62,6 @@ Return a JSON object with exactly this structure:
 {
   "payer_name": {"value": "Acme Corp", "confidence": 0.95},
   "payer_tin": {"value": "12-3456789", "confidence": 0.90},
-  "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "recipient_name": {"value": "Jane Doe", "confidence": 0.95},
   "rents": {"value": 0.0, "confidence": 0.99},
   "royalties": {"value": 0.0, "confidence": 0.99},
@@ -84,7 +81,6 @@ Rules:
 - Numeric fields must be numbers, not strings
 - If a field is absent, use {"value": null, "confidence": 0.0}
 - "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
-- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """
@@ -95,7 +91,6 @@ Return a JSON object with exactly this structure:
 
 {
   "payer_name": {"value": "Charles Schwab", "confidence": 0.95},
-  "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "recipient_name": {"value": "Jane Doe", "confidence": 0.95},
   "transactions": {
     "value": [
@@ -144,7 +139,6 @@ Return a JSON object with exactly this structure:
 {
   "payer_name": {"value": "Coinbase Inc.", "confidence": 0.95},
   "payer_tin": {"value": "12-3456789", "confidence": 0.90},
-  "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "recipient_name": {"value": "Jane Doe", "confidence": 0.95},
   "transactions": {
     "value": [
@@ -176,7 +170,6 @@ Rules:
 - If a field is absent for a transaction, use null
 - If a top-level field is absent, use {"value": null, "confidence": 0.0}
 - "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
-- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """
@@ -188,7 +181,6 @@ Return a JSON object with exactly this structure:
 {
   "payer_name": {"value": "California EDD", "confidence": 0.95},
   "payer_tin": {"value": "12-3456789", "confidence": 0.90},
-  "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "recipient_name": {"value": "Jane Doe", "confidence": 0.95},
   "unemployment_compensation": {"value": 8400.00, "confidence": 0.99},
   "state_local_income_tax_refunds": {"value": 0.0, "confidence": 0.99},
@@ -206,7 +198,6 @@ Rules:
 - "tax_year_of_refund" (box 3) is an integer year, or null if absent
 - If a field is absent, use {"value": null, "confidence": 0.0}
 - "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
-- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """

@@ -25,7 +25,6 @@ class W2Data(BaseModel):
 class Form1099NECData(BaseModel):
     payer_name: FieldWithConfidence | None = None
     payer_tin: FieldWithConfidence | None = None
-    recipient_tin: FieldWithConfidence | None = None
     recipient_name: FieldWithConfidence | None = None
     nonemployee_compensation: FieldWithConfidence | None = None     # box 1
     federal_tax_withheld: FieldWithConfidence | None = None         # box 4
@@ -33,7 +32,7 @@ class Form1099NECData(BaseModel):
 
 class Form1099INTData(BaseModel):
     payer_name: FieldWithConfidence | None = None
-    recipient_tin: FieldWithConfidence | None = None
+    payer_tin: FieldWithConfidence | None = None
     interest_income: FieldWithConfidence | None = None              # box 1
     early_withdrawal_penalty: FieldWithConfidence | None = None     # box 2
     us_savings_bonds_interest: FieldWithConfidence | None = None    # box 3
@@ -42,7 +41,6 @@ class Form1099INTData(BaseModel):
 
 class Form1099DIVData(BaseModel):
     payer_name: FieldWithConfidence | None = None
-    recipient_tin: FieldWithConfidence | None = None
     ordinary_dividends: FieldWithConfidence | None = None           # box 1a
     qualified_dividends: FieldWithConfidence | None = None          # box 1b
     total_capital_gain: FieldWithConfidence | None = None           # box 2a

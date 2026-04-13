@@ -32,6 +32,7 @@ export default function DocumentsPage() {
   const [batchExtracting, setBatchExtracting] = useState(false)
   const [batchReExtracting, setBatchReExtracting] = useState(false)
   const [batchLowConfExtracting, setBatchLowConfExtracting] = useState(false)
+  const [deletingAll, setDeletingAll] = useState(false)
   const [confidences, setConfidences] = useState<Record<string, number>>({})
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -155,6 +156,15 @@ export default function DocumentsPage() {
     finally { setBatchReExtracting(false); setExtracting({}) }
   }
 
+  async function handleDeleteAll() {
+    if (!docs.length) return
+    if (!confirm(`Delete all ${docs.length} document${docs.length === 1 ? '' : 's'}?`)) return
+    setDeletingAll(true)
+    setSelected(null)
+    try { await Promise.allSettled(docs.map((d) => documents.delete(d.id))); await load() }
+    finally { setDeletingAll(false) }
+  }
+
   async function handleBatchLowConfExtract() {
     const ids = docs
       .filter((d) => d.status === 'extracted' && (confidences[d.id] ?? 1) < LOW_CONF_THRESHOLD)
@@ -235,6 +245,12 @@ export default function DocumentsPage() {
           {docs.some((d) => d.status === 'extracted' && (confidences[d.id] ?? 1) < LOW_CONF_THRESHOLD) && (
             <Button variant="outline" size="sm" disabled={batchLowConfExtracting} onClick={handleBatchLowConfExtract}>
               {batchLowConfExtracting ? t('extractingAll') : t('reExtractLowConf')}
+            </Button>
+          )}
+          {docs.length > 0 && (
+            <Button variant="ghost" size="sm" disabled={deletingAll} onClick={handleDeleteAll}
+              className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10">
+              {deletingAll ? 'Deleting…' : 'Delete All'}
             </Button>
           )}
         </div>
@@ -396,7 +412,7 @@ export default function DocumentsPage() {
                       {/* Scalar fields in a 2-column grid */}
                       <div className="grid grid-cols-2 gap-2">
                         {Object.entries(result.data)
-                          .filter(([, value]) => !Array.isArray(value))
+                          .filter(([field, value]) => field !== 'recipient_tin' && !Array.isArray(value))
                           .map(([field, value]) => {
                             const conf = result.field_confidences[field] ?? 1
                             const current = resultEdits[field] !== undefined ? resultEdits[field] : String(value ?? '')
