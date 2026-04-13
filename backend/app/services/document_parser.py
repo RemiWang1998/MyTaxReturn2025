@@ -208,8 +208,10 @@ async def parse_document(doc: Document, db: AsyncSession) -> list[ExtractedData]
             db.add(row)
             results.append(row)
     else:
-        # Single form — first page is usually sufficient
-        raw_data = await _extract_fields(llm, images[:1], form_type)
+        # Transaction-heavy forms need all pages; others only need the first
+        all_pages_forms = {"1099-b", "1099-da"}
+        pages = images if form_type in all_pages_forms else images[:1]
+        raw_data = await _extract_fields(llm, pages, form_type)
         clean_data, field_confs, overall = _parse_raw_fields(raw_data)
         row = ExtractedData(
             document_id=doc.id,

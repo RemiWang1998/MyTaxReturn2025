@@ -14,6 +14,8 @@ Return a JSON object with exactly this structure:
 Rules:
 - Numeric fields must be numbers, not strings
 - If a field is absent, use {"value": null, "confidence": 0.0}
+- "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
+- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - Return ONLY the JSON object, no markdown fences or other text
 """
 
@@ -81,13 +83,13 @@ Return a JSON object with exactly this structure:
 Rules:
 - Numeric fields must be numbers, not strings
 - If a field is absent, use {"value": null, "confidence": 0.0}
+- "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
+- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """
 
-FORM_1099_B_PROMPT = """You are a tax document data extraction assistant. Extract summary totals from the 1099-B (Proceeds from Broker and Barter Exchange Transactions) section.
-
-If the document contains a summary of transactions, extract the summary totals. If it lists individual transactions without a summary, aggregate them into totals.
+FORM_1099_B_PROMPT = """You are a tax document data extraction assistant. Extract all transactions and summary totals from the 1099-B (Proceeds from Broker and Barter Exchange Transactions) section.
 
 Return a JSON object with exactly this structure:
 
@@ -95,6 +97,22 @@ Return a JSON object with exactly this structure:
   "payer_name": {"value": "Charles Schwab", "confidence": 0.95},
   "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "recipient_name": {"value": "Jane Doe", "confidence": 0.95},
+  "transactions": {
+    "value": [
+      {
+        "description": "AAPL",
+        "date_acquired": "2024-01-15",
+        "date_sold": "2024-11-20",
+        "proceeds": 5500.00,
+        "cost_or_other_basis": 4800.00,
+        "wash_sale_loss_disallowed": 0.0,
+        "gain_or_loss": 700.00,
+        "term": "long-term",
+        "covered": true
+      }
+    ],
+    "confidence": 0.90
+  },
   "short_term_proceeds": {"value": 15000.00, "confidence": 0.90},
   "short_term_cost_basis": {"value": 14000.00, "confidence": 0.90},
   "short_term_gain_loss": {"value": 1000.00, "confidence": 0.90},
@@ -108,14 +126,18 @@ Return a JSON object with exactly this structure:
 }
 
 Rules:
+- Extract EVERY individual transaction listed — do not skip any
 - Numeric fields must be numbers, not strings
-- If a field is absent or not derivable from the document, use {"value": null, "confidence": 0.0}
-- If only individual transactions are listed without summaries, compute the totals
+- Dates should be formatted as YYYY-MM-DD strings; use null if absent
+- "term" must be "short-term", "long-term", or null
+- "covered" is a boolean (true = covered security, false = noncovered); use null if absent
+- For summary totals: if a printed summary exists use it; otherwise compute from the transactions list
+- If a field is absent or not derivable, use {"value": null, "confidence": 0.0}
 - The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """
 
-FORM_1099_DA_PROMPT = """You are a tax document data extraction assistant. Extract all fields from the 1099-DA (Digital Asset Proceeds from Broker Transactions) form shown in the image.
+FORM_1099_DA_PROMPT = """You are a tax document data extraction assistant. Extract all transactions from the 1099-DA (Digital Asset Proceeds from Broker Transactions) form shown in the image.
 
 Return a JSON object with exactly this structure:
 
@@ -124,26 +146,37 @@ Return a JSON object with exactly this structure:
   "payer_tin": {"value": "12-3456789", "confidence": 0.90},
   "recipient_tin": {"value": "123-45-6789", "confidence": 0.95},
   "recipient_name": {"value": "Jane Doe", "confidence": 0.95},
-  "asset_name": {"value": "Bitcoin", "confidence": 0.99},
-  "token_id": {"value": "BTC", "confidence": 0.95},
-  "date_acquired": {"value": "2024-03-15", "confidence": 0.90},
-  "date_sold": {"value": "2025-01-10", "confidence": 0.90},
-  "proceeds": {"value": 18500.00, "confidence": 0.99},
-  "cost_or_other_basis": {"value": 12000.00, "confidence": 0.99},
-  "accrued_market_discount": {"value": 0.0, "confidence": 0.99},
-  "wash_sale_loss_disallowed": {"value": 0.0, "confidence": 0.99},
-  "gain_or_loss": {"value": 6500.00, "confidence": 0.99},
-  "term": {"value": "long-term", "confidence": 0.95},
-  "covered": {"value": true, "confidence": 0.95},
+  "transactions": {
+    "value": [
+      {
+        "asset_name": "Bitcoin",
+        "token_id": "BTC",
+        "date_acquired": "2024-03-15",
+        "date_sold": "2025-01-10",
+        "proceeds": 18500.00,
+        "cost_or_other_basis": 12000.00,
+        "accrued_market_discount": 0.0,
+        "wash_sale_loss_disallowed": 0.0,
+        "gain_or_loss": 6500.00,
+        "term": "long-term",
+        "covered": true
+      }
+    ],
+    "confidence": 0.90
+  },
   "federal_tax_withheld": {"value": 0.0, "confidence": 0.99}
 }
 
 Rules:
+- Extract EVERY individual transaction listed — do not skip any
 - Numeric fields must be numbers, not strings
 - Dates should be formatted as YYYY-MM-DD strings; use null if absent
 - "term" must be "short-term", "long-term", or null
 - "covered" is a boolean (true = covered security, false = noncovered); use null if absent
-- If a field is absent, use {"value": null, "confidence": 0.0}
+- If a field is absent for a transaction, use null
+- If a top-level field is absent, use {"value": null, "confidence": 0.0}
+- "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
+- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """
@@ -172,6 +205,8 @@ Rules:
 - Numeric fields must be numbers, not strings
 - "tax_year_of_refund" (box 3) is an integer year, or null if absent
 - If a field is absent, use {"value": null, "confidence": 0.0}
+- "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
+- "recipient_tin" is the taxpayer's SSN or ITIN in the RECIPIENT'S TIN box (format XXX-XX-XXXX, e.g. 123-45-6789); it may be partially masked
 - The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """

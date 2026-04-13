@@ -87,6 +87,7 @@ async def run_extraction(
         raise HTTPException(status_code=409, detail="Extraction already in progress")
 
     doc.status = "extracting"
+    doc.error_msg = None
     await db.commit()
 
     background_tasks.add_task(_run_extraction, doc_id)

@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { documents, extraction } from '@/lib/api'
 import type { Document, ExtractionResult } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { TransactionTable } from '@/components/documents/TransactionTable'
 
 const LOW_CONF_THRESHOLD = 0.8
 const ACCEPTED = '.pdf,.png,.jpg,.jpeg,.zip'
@@ -41,6 +42,32 @@ export default function DocumentsPage() {
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({})
   const [saving, setSaving] = useState<Record<string, boolean>>({})
   const [subIdx, setSubIdx] = useState(0)
+
+  // splitters
+  const [listWidth, setListWidth] = useState(272)   // left column (doc list)
+  const [viewerWidth, setViewerWidth] = useState(480) // right column (source viewer)
+  const listSplitter = useRef<{ startX: number; startWidth: number } | null>(null)
+  const viewerSplitter = useRef<{ startX: number; startWidth: number } | null>(null)
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (listSplitter.current) {
+        const delta = e.clientX - listSplitter.current.startX
+        setListWidth(Math.max(200, listSplitter.current.startWidth + delta))
+      }
+      if (viewerSplitter.current) {
+        const delta = viewerSplitter.current.startX - e.clientX
+        setViewerWidth(Math.max(300, viewerSplitter.current.startWidth + delta))
+      }
+    }
+    function onUp() { listSplitter.current = null; viewerSplitter.current = null }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [])
 
   const statusLabel: Record<Document['status'], string> = {
     uploaded: t('statusUploaded'),
@@ -185,9 +212,9 @@ export default function DocumentsPage() {
   const hasEdits = Object.keys(resultEdits).length > 0
 
   return (
-    <div className="flex gap-6 min-h-0">
+    <div className="flex min-h-0">
       {/* ── Left: document list ── */}
-      <div className="w-108 shrink-0 space-y-4">
+      <div className="shrink-0 space-y-4 pr-4" style={{ width: listWidth }}>
         <div>
           <h1 className="text-xl font-semibold">{t('heading')}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
@@ -305,102 +332,156 @@ export default function DocumentsPage() {
         )}
       </div>
 
+      {/* ── List / review splitter ── */}
+      <div
+        className="flex items-center justify-center w-4 shrink-0 self-stretch cursor-col-resize group"
+        onMouseDown={(e) => { listSplitter.current = { startX: e.clientX, startWidth: listWidth }; e.preventDefault() }}
+      >
+        <div className="w-px h-full bg-border group-hover:bg-primary/40 transition-colors" />
+      </div>
+
       {/* ── Right: review panel ── */}
       {selectedDoc && (
-        <div className="flex-1 min-w-0 border-l border-border pl-6 space-y-4">
+        <div className="flex-1 min-w-0 pl-2 space-y-4">
           <div>
             <h2 className="text-lg font-semibold truncate">{selectedDoc.filename}</h2>
           </div>
 
-          {selectedDoc.status !== 'extracted' ? (
-            <p className="text-sm text-muted-foreground">{t('notExtracted')}</p>
-          ) : docResults.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{tR('loading')}</p>
-          ) : (
-            <>
-              {/* Sub-form tabs for consolidated 1099 */}
-              {docResults.length > 1 && (
-                <div className="flex gap-1.5 flex-wrap">
-                  {docResults.map((r, i) => (
-                    <button
-                      key={r.id}
-                      onClick={() => setSubIdx(i)}
-                      className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors uppercase ${
-                        subIdx === i
-                          ? 'bg-primary/10 border-primary text-primary'
-                          : 'border-border text-muted-foreground hover:bg-accent'
-                      }`}
-                    >
-                      {r.form_type}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {result && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="font-medium uppercase">{result.form_type}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {tR('avgConfidence', { pct: (result.confidence * 100).toFixed(0) })}
-                      </span>
-                      {result.user_verified && (
-                        <span className="text-xs text-green-600 font-medium">{tR('verified')}</span>
-                      )}
+          {/* On wide screens: review data left, PDF viewer right */}
+          <div className="flex flex-col xl:flex-row xl:items-start">
+            {/* Review data */}
+            <div className="flex-1 min-w-0 space-y-4">
+              {selectedDoc.status !== 'extracted' ? (
+                <p className="text-sm text-muted-foreground">{t('notExtracted')}</p>
+              ) : docResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{tR('loading')}</p>
+              ) : (
+                <>
+                  {/* Sub-form tabs for consolidated 1099 */}
+                  {docResults.length > 1 && (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {docResults.map((r, i) => (
+                        <button
+                          key={r.id}
+                          onClick={() => setSubIdx(i)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors uppercase ${
+                            subIdx === i
+                              ? 'bg-primary/10 border-primary text-primary'
+                              : 'border-border text-muted-foreground hover:bg-accent'
+                          }`}
+                        >
+                          {r.form_type}
+                        </button>
+                      ))}
                     </div>
-                    <Button size="sm" onClick={() => handleSave(result)} disabled={saving[rid] || !hasEdits}>
-                      {saving[rid] ? tR('saving') : tR('saveChanges')}
-                    </Button>
-                  </div>
+                  )}
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(result.data).map(([field, value]) => {
-                      const conf = result.field_confidences[field] ?? 1
-                      const current = resultEdits[field] !== undefined ? resultEdits[field] : String(value ?? '')
-                      return (
-                        <div key={field} className={`border rounded-md p-2.5 ${confidenceBorder(conf)}`}>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="text-xs font-medium capitalize text-muted-foreground">
-                              {field.replace(/_/g, ' ')}
-                            </label>
-                            {conf < 0.8 && (
-                              <span className="text-[10px] text-muted-foreground">{(conf * 100).toFixed(0)}%</span>
-                            )}
-                          </div>
-                          <input
-                            type="text"
-                            value={current}
-                            onChange={(e) => setEdit(rid, field, e.target.value)}
-                            className="w-full text-sm bg-transparent outline-none text-foreground"
-                          />
+                  {result && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="font-medium uppercase">{result.form_type}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {tR('avgConfidence', { pct: (result.confidence * 100).toFixed(0) })}
+                          </span>
+                          {result.user_verified && (
+                            <span className="text-xs text-green-600 font-medium">{tR('verified')}</span>
+                          )}
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+                        <Button size="sm" onClick={() => handleSave(result)} disabled={saving[rid] || !hasEdits}>
+                          {saving[rid] ? tR('saving') : tR('saveChanges')}
+                        </Button>
+                      </div>
 
-          {/* Original file preview */}
-          <div className="border border-border rounded-lg overflow-hidden">
-            <div className="px-3 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground truncate">
-              {selectedDoc.filename}
+                      {/* Scalar fields in a 2-column grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(result.data)
+                          .filter(([, value]) => !Array.isArray(value))
+                          .map(([field, value]) => {
+                            const conf = result.field_confidences[field] ?? 1
+                            const current = resultEdits[field] !== undefined ? resultEdits[field] : String(value ?? '')
+                            return (
+                              <div key={field} className={`border rounded-md p-2.5 ${confidenceBorder(conf)}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs font-medium capitalize text-muted-foreground">
+                                    {field.replace(/_/g, ' ')}
+                                  </label>
+                                  {conf < 0.8 && (
+                                    <span className="text-[10px] text-muted-foreground">{(conf * 100).toFixed(0)}%</span>
+                                  )}
+                                </div>
+                                <input
+                                  type="text"
+                                  value={current}
+                                  onChange={(e) => setEdit(rid, field, e.target.value)}
+                                  className="w-full text-sm bg-transparent outline-none text-foreground"
+                                />
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Transaction tables */}
+              {result && Object.entries(result.data)
+                .filter(([, value]) => Array.isArray(value))
+                .map(([field, value]) => {
+                  const conf = result.field_confidences[field] ?? 1
+                  return (
+                    <div key={field} className={`border rounded-md p-2.5 ${confidenceBorder(conf)}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-medium capitalize text-muted-foreground">
+                          {field.replace(/_/g, ' ')}
+                        </label>
+                        {conf < 0.8 && (
+                          <span className="text-[10px] text-muted-foreground">{(conf * 100).toFixed(0)}%</span>
+                        )}
+                      </div>
+                      <TransactionTable transactions={(value as Record<string, string | number | boolean | null>[]) ?? []} />
+                    </div>
+                  )
+                })
+              }
             </div>
-            {selectedDoc.file_type === 'pdf' ? (
-              <iframe
-                src={documents.previewUrl(selectedDoc.id)}
-                className="w-full h-[800px]"
-                title={selectedDoc.filename}
-              />
-            ) : (
-              <img
-                src={documents.previewUrl(selectedDoc.id)}
-                alt={selectedDoc.filename}
-                className="w-full object-contain"
-              />
-            )}
+
+            {/* Splitter — only visible in side-by-side layout */}
+            <div
+              className="hidden xl:flex items-center justify-center w-4 shrink-0 self-stretch cursor-col-resize group"
+              onMouseDown={(e) => {
+                viewerSplitter.current = { startX: e.clientX, startWidth: viewerWidth }
+                e.preventDefault()
+              }}
+            >
+              <div className="w-px h-full bg-border group-hover:bg-primary/40 transition-colors" />
+            </div>
+
+            {/* Source document viewer */}
+            <div className="shrink-0 mt-4 xl:mt-0 space-y-2" style={{ ['--viewer-w' as string]: `${viewerWidth}px` }}>
+              <h3 className="hidden xl:block text-sm font-medium text-muted-foreground">Source Document</h3>
+              <div
+                className="border border-border rounded-lg overflow-hidden w-full xl:[width:var(--viewer-w)]"
+              >
+              <div className="px-3 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground truncate">
+                {selectedDoc.filename}
+              </div>
+              {selectedDoc.file_type === 'pdf' ? (
+                <iframe
+                  src={documents.previewUrl(selectedDoc.id)}
+                  className="w-full h-[800px]"
+                  title={selectedDoc.filename}
+                />
+              ) : (
+                <img
+                  src={documents.previewUrl(selectedDoc.id)}
+                  alt={selectedDoc.filename}
+                  className="w-full object-contain"
+                />
+              )}
+              </div>
+            </div>
           </div>
         </div>
       )}
