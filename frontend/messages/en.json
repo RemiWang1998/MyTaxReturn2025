@@ -35,6 +35,8 @@
     "testing": "Testing…",
     "saving": "Saving…",
     "saved": "Key saved successfully.",
+    "testConnection": "Test Connection",
+    "connectionOk": "Connection successful.",
     "language": "Language",
     "languageLabel": "Display Language",
     "langEn": "English",

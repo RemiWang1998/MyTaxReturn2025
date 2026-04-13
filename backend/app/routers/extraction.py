@@ -1,4 +1,5 @@
 import json
+import re
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,6 +9,42 @@ from app.models.extracted_data import ExtractedData
 from app.services.document_parser import parse_document
 
 router = APIRouter(prefix="/api/extraction", tags=["extraction"])
+
+
+def _friendly_error(exc: Exception) -> str:
+    """Convert a raw LLM provider exception into a short, human-readable message."""
+    msg = str(exc)
+
+    # --- 503 / service unavailable / high demand (Google, Anthropic, OpenAI) ---
+    if re.search(r"503|UNAVAILABLE|unavailable|high demand|overloaded|Service Unavailable", msg, re.I):
+        return "LLM model unavailable due to high usage. Please try again later."
+
+    # --- 429 / rate limit ---
+    if re.search(r"429|rate.?limit|quota|RESOURCE_EXHAUSTED", msg, re.I):
+        return "LLM rate limit reached. Please wait a moment and try again."
+
+    # --- 401 / 403 / invalid API key ---
+    if re.search(r"401|403|invalid.api.key|invalid_api_key|UNAUTHENTICATED|PermissionDenied|Unauthorized|Forbidden", msg, re.I):
+        return "LLM API key is invalid or expired. Please check your API key in Settings."
+
+    # --- 404 / model not found ---
+    if re.search(r"404|model.not.found|no such model|does not exist", msg, re.I):
+        return "LLM model not found. Please check your model name in Settings."
+
+    # --- context window / token limit ---
+    if re.search(r"context.length|context.window|maximum.context|token.limit|too.many.tokens|string too long", msg, re.I):
+        return "Document is too large for the model's context window. Try a smaller file."
+
+    # --- network / connection errors ---
+    if re.search(r"ConnectionError|ConnectTimeout|ReadTimeout|connection.refused|Network", msg, re.I):
+        return "Could not reach the LLM provider. Check your internet connection and try again."
+
+    # --- 500 / internal server error from provider ---
+    if re.search(r"\b500\b|InternalServerError|internal.error", msg, re.I):
+        return "LLM provider returned an internal error. Please try again later."
+
+    # --- fallback: keep original but cap length ---
+    return msg[:200] if len(msg) > 200 else msg
 
 
 def _result_to_dict(row: ExtractedData) -> dict:
@@ -33,7 +70,7 @@ async def _run_extraction(doc_id: int) -> None:
             await parse_document(doc, db)
         except Exception as exc:
             doc.status = "error"
-            doc.error_msg = str(exc)
+            doc.error_msg = _friendly_error(exc)
             await db.commit()
 
 

@@ -91,9 +91,21 @@ export default function DocumentsPage() {
     finally { setUploading(false) }
   }
 
+  // Poll until none of the given doc IDs are still in "extracting" state, then do a full load.
+  async function pollUntilDone(docIds: string[]) {
+    const ids = new Set(docIds)
+    for (let i = 0; i < 120; i++) {
+      await new Promise<void>((r) => setTimeout(r, 1500))
+      const all = await documents.list()
+      setDocs(all)
+      if (!all.some((d) => ids.has(d.id) && d.status === 'extracting')) break
+    }
+    await load()
+  }
+
   async function handleExtract(docId: string) {
     setExtracting((e) => ({ ...e, [docId]: true }))
-    try { await extraction.run(docId); await load() }
+    try { await extraction.run(docId); await pollUntilDone([docId]) }
     catch (err) { alert(String(err)) }
     finally { setExtracting((e) => ({ ...e, [docId]: false })) }
   }
@@ -103,7 +115,7 @@ export default function DocumentsPage() {
     if (!ids.length) return
     setBatchExtracting(true)
     setExtracting(Object.fromEntries(ids.map((id) => [id, true])))
-    try { await Promise.allSettled(ids.map((id) => extraction.run(id))); await load() }
+    try { await Promise.allSettled(ids.map((id) => extraction.run(id))); await pollUntilDone(ids) }
     finally { setBatchExtracting(false); setExtracting({}) }
   }
 
@@ -112,7 +124,7 @@ export default function DocumentsPage() {
     if (!ids.length) return
     setBatchReExtracting(true)
     setExtracting(Object.fromEntries(ids.map((id) => [id, true])))
-    try { await Promise.allSettled(ids.map((id) => extraction.run(id))); await load() }
+    try { await Promise.allSettled(ids.map((id) => extraction.run(id))); await pollUntilDone(ids) }
     finally { setBatchReExtracting(false); setExtracting({}) }
   }
 
@@ -123,19 +135,21 @@ export default function DocumentsPage() {
     if (!ids.length) return
     setBatchLowConfExtracting(true)
     setExtracting(Object.fromEntries(ids.map((id) => [id, true])))
-    try { await Promise.allSettled(ids.map((id) => extraction.run(id))); await load() }
+    try { await Promise.allSettled(ids.map((id) => extraction.run(id))); await pollUntilDone(ids) }
     finally { setBatchLowConfExtracting(false); setExtracting({}) }
   }
 
   async function handleDocTypeChange(docId: string, value: string) {
     const doc_type = value === '' ? null : value
     await documents.updateDocType(docId, doc_type)
+    setResults((r) => { const n = { ...r }; delete n[docId]; return n })
+    setConfidences((c) => { const n = { ...c }; delete n[docId]; return n })
     await load()
   }
 
   async function handleDelete(docId: string) {
     if (selected === docId) setSelected(null)
-    await documents.delete(docId)
+    try { await documents.delete(docId) } catch { /* already gone */ }
     load()
   }
 
@@ -269,7 +283,7 @@ export default function DocumentsPage() {
                         {extracting[doc.id] ? t('extracting') : t('extract')}
                       </Button>
                     )}
-                    {(doc.status === 'extracted' || doc.status === 'error') && (
+                    {(doc.status === 'extracted' || doc.status === 'error' || doc.status === 'extracting') && (
                       <Button variant="outline" size="xs" onClick={() => handleExtract(doc.id)} disabled={extracting[doc.id]}>
                         {extracting[doc.id] ? t('extracting') : t('reExtract')}
                       </Button>
@@ -279,7 +293,7 @@ export default function DocumentsPage() {
                 </div>
 
                 {doc.error_msg && (
-                  <p className="text-xs text-destructive truncate" title={doc.error_msg}>{doc.error_msg}</p>
+                  <p className="text-xs text-destructive">{doc.error_msg}</p>
                 )}
               </div>
             ))}

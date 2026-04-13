@@ -35,6 +35,8 @@
     "testing": "测试中…",
     "saving": "保存中…",
     "saved": "密钥已成功保存。",
+    "testConnection": "测试连接",
+    "connectionOk": "连接成功。",
     "language": "语言",
     "languageLabel": "显示语言",
     "langEn": "English",

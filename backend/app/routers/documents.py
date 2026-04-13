@@ -137,7 +137,11 @@ async def update_document(doc_id: int, body: DocumentUpdate, db: AsyncSession = 
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    type_changed = body.doc_type != doc.doc_type
     doc.doc_type = body.doc_type
+    if type_changed and doc.status in ("extracted", "error"):
+        doc.status = "uploaded"
+        doc.error_msg = None
     await db.commit()
     await db.refresh(doc)
     return doc
@@ -147,7 +151,7 @@ async def update_document(doc_id: int, body: DocumentUpdate, db: AsyncSession = 
 async def delete_document(doc_id: int, db: AsyncSession = Depends(get_db)):
     doc = await db.get(Document, doc_id)
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        return
     Path(doc.file_path).unlink(missing_ok=True)
     await db.delete(doc)
     await db.commit()

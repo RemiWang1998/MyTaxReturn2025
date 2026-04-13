@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [locale, setLocale] = useState('en')
+  const [testStatus, setTestStatus] = useState<Record<string, { ok: boolean; msg: string } | 'testing'>>( {})
 
   const load = () => apiKeys.list().then(setKeys)
   useEffect(() => {
@@ -58,7 +59,14 @@ export default function SettingsPage() {
 
   async function handleDelete(provider: string) {
     await apiKeys.delete(provider)
+    setTestStatus((s) => { const n = { ...s }; delete n[provider]; return n })
     load()
+  }
+
+  async function handleTestSaved(provider: string) {
+    setTestStatus((s) => ({ ...s, [provider]: 'testing' }))
+    const res = await apiKeys.testSaved(provider)
+    setTestStatus((s) => ({ ...s, [provider]: { ok: res.ok, msg: res.error ?? '' } }))
   }
 
   const busy = status === 'testing' || status === 'saving'
@@ -74,18 +82,32 @@ export default function SettingsPage() {
         <div className="space-y-2">
           <h2 className="text-sm font-medium">{t('savedKeys')}</h2>
           <div className="space-y-1">
-            {keys.map((k) => (
-              <div
-                key={k.provider}
-                className="flex items-center gap-3 px-3 py-2 border border-border rounded-md text-sm"
-              >
-                <span className="font-medium capitalize flex-1">{k.provider}</span>
-                <span className="text-muted-foreground text-xs">{k.model_name}</span>
-                <Button variant="destructive" size="xs" onClick={() => handleDelete(k.provider)}>
-                  {t('remove')}
-                </Button>
-              </div>
-            ))}
+            {keys.map((k) => {
+              const ts = testStatus[k.provider]
+              return (
+                <div key={k.provider} className="border border-border rounded-md text-sm">
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <span className="font-medium capitalize flex-1">{k.provider}</span>
+                    <span className="text-muted-foreground text-xs">{k.model_name}</span>
+                    <Button
+                      variant="outline" size="xs"
+                      disabled={ts === 'testing'}
+                      onClick={() => handleTestSaved(k.provider)}
+                    >
+                      {ts === 'testing' ? t('testing') : t('testConnection')}
+                    </Button>
+                    <Button variant="destructive" size="xs" onClick={() => handleDelete(k.provider)}>
+                      {t('remove')}
+                    </Button>
+                  </div>
+                  {ts && ts !== 'testing' && (
+                    <p className={`px-3 pb-2 text-xs ${ts.ok ? 'text-green-600' : 'text-destructive'}`}>
+                      {ts.ok ? t('connectionOk') : ts.msg}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

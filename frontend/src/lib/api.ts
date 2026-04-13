@@ -9,6 +9,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await res.text();
     throw new Error(`API ${res.status}: ${text}`);
   }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -21,6 +24,8 @@ export const apiKeys = {
     request<void>(`/api/keys/${provider}`, { method: "DELETE" }),
   test: (body: { provider: string; api_key: string; model_name: string }) =>
     request<{ ok: boolean; error?: string }>("/api/keys/test", { method: "POST", body: JSON.stringify(body) }),
+  testSaved: (provider: string) =>
+    request<{ ok: boolean; error?: string }>(`/api/keys/${provider}/test`, { method: "POST" }),
 };
 
 // --- Document endpoints ---

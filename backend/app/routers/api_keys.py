@@ -44,6 +44,19 @@ async def delete_key(provider: str, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
 
+@router.post("/{provider}/test")
+async def test_saved_key(provider: str, db: AsyncSession = Depends(get_db)) -> dict:
+    """Test a saved (encrypted) key by making a minimal LLM call."""
+    from app.services.llm_factory import get_llm
+    from app.routers.extraction import _friendly_error
+    try:
+        llm = await get_llm(db, provider=provider)
+        await llm.ainvoke("hi")
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": _friendly_error(e)}
+
+
 @router.post("/test")
 async def test_key(body: ApiKeyCreate) -> dict:
     """Validate the API key by making a minimal call to the provider."""
