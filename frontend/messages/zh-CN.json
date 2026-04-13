@@ -48,6 +48,8 @@
     "uploading": "上传中…",
     "extract": "提取",
     "extracting": "提取中…",
+    "extractAll": "批量提取",
+    "extractingAll": "提取中…",
     "noDocuments": "暂无文件。",
     "statusUploaded": "已上传",
     "statusExtracting": "提取中",

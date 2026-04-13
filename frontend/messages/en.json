@@ -48,6 +48,8 @@
     "uploading": "Uploading…",
     "extract": "Extract",
     "extracting": "Extracting…",
+    "extractAll": "Extract All",
+    "extractingAll": "Extracting…",
     "noDocuments": "No documents yet.",
     "statusUploaded": "uploaded",
     "statusExtracting": "extracting",
