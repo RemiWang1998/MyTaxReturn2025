@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { apiKeys } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { LanguageToggle } from '@/components/settings/language-toggle'
 
 const PROVIDERS = [
   { value: 'anthropic', label: 'Anthropic', defaultModel: 'claude-opus-4-6', keyPlaceholder: 'sk-ant-…' },
@@ -12,14 +14,25 @@ const PROVIDERS = [
 
 type Status = 'idle' | 'testing' | 'saving' | 'ok' | 'error'
 
+function getCurrentLocale() {
+  if (typeof document === 'undefined') return 'en'
+  const match = document.cookie.match(/(?:^|;\s*)NEXT_LOCALE=([^;]+)/)
+  return match ? match[1] : 'en'
+}
+
 export default function SettingsPage() {
+  const t = useTranslations('settings')
   const [keys, setKeys] = useState<{ provider: string; model_name: string }[]>([])
   const [form, setForm] = useState({ provider: 'anthropic', api_key: '', model_name: 'claude-opus-4-6' })
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const [locale, setLocale] = useState('en')
 
   const load = () => apiKeys.list().then(setKeys)
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    setLocale(getCurrentLocale())
+  }, [])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -53,15 +66,13 @@ export default function SettingsPage() {
   return (
     <div className="max-w-lg space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage your LLM API keys. Keys are Fernet-encrypted and stored locally.
-        </p>
+        <h1 className="text-xl font-semibold">{t('heading')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       {keys.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-medium">Saved Keys</h2>
+          <h2 className="text-sm font-medium">{t('savedKeys')}</h2>
           <div className="space-y-1">
             {keys.map((k) => (
               <div
@@ -71,7 +82,7 @@ export default function SettingsPage() {
                 <span className="font-medium capitalize flex-1">{k.provider}</span>
                 <span className="text-muted-foreground text-xs">{k.model_name}</span>
                 <Button variant="destructive" size="xs" onClick={() => handleDelete(k.provider)}>
-                  Remove
+                  {t('remove')}
                 </Button>
               </div>
             ))}
@@ -80,10 +91,10 @@ export default function SettingsPage() {
       )}
 
       <form onSubmit={handleSave} className="space-y-4">
-        <h2 className="text-sm font-medium">Add / Replace Key</h2>
+        <h2 className="text-sm font-medium">{t('addKey')}</h2>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Provider</label>
+          <label className="text-sm font-medium">{t('provider')}</label>
           <select
             value={form.provider}
             onChange={(e) => {
@@ -101,7 +112,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Model</label>
+          <label className="text-sm font-medium">{t('model')}</label>
           <input
             type="text"
             value={form.model_name}
@@ -113,7 +124,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">API Key</label>
+          <label className="text-sm font-medium">{t('apiKey')}</label>
           <input
             type="password"
             value={form.api_key}
@@ -125,12 +136,17 @@ export default function SettingsPage() {
         </div>
 
         {status === 'error' && <p className="text-sm text-destructive">{errorMsg}</p>}
-        {status === 'ok' && <p className="text-sm text-green-600">Key saved successfully.</p>}
+        {status === 'ok' && <p className="text-sm text-green-600">{t('saved')}</p>}
 
         <Button type="submit" disabled={busy}>
-          {status === 'testing' ? 'Testing…' : status === 'saving' ? 'Saving…' : 'Test & Save'}
+          {status === 'testing' ? t('testing') : status === 'saving' ? t('saving') : t('testSave')}
         </Button>
       </form>
+
+      <div className="border-t border-border pt-6">
+        <h2 className="text-sm font-medium mb-4">{t('language')}</h2>
+        <LanguageToggle current={locale} label={t('languageLabel')} />
+      </div>
     </div>
   )
 }

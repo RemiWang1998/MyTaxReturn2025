@@ -1,0 +1,93 @@
+{
+  "sidebar": {
+    "title": "美国报税 2025",
+    "subtitle": "本地运行",
+    "dashboard": "概览",
+    "documents": "文件",
+    "review": "核查",
+    "calculate": "计算",
+    "filing": "申报",
+    "settings": "设置"
+  },
+  "dashboard": {
+    "heading": "概览",
+    "subtitle": "2025 纳税年度 — 所有数据保留在本机。",
+    "statDocuments": "文件",
+    "statExtracted": "已提取",
+    "statRefund": "预计退税",
+    "steps": "步骤",
+    "step1": "添加 API 密钥",
+    "step2": "上传文件",
+    "step3": "核查提取数据",
+    "step4": "计算税额",
+    "step5": "提交申报"
+  },
+  "settings": {
+    "heading": "设置",
+    "subtitle": "管理您的 LLM API 密钥。密钥经 Fernet 加密后存储在本地。",
+    "savedKeys": "已保存的密钥",
+    "addKey": "添加 / 替换密钥",
+    "provider": "服务商",
+    "model": "模型",
+    "apiKey": "API 密钥",
+    "remove": "删除",
+    "testSave": "测试并保存",
+    "testing": "测试中…",
+    "saving": "保存中…",
+    "saved": "密钥已成功保存。",
+    "language": "语言",
+    "languageLabel": "显示语言",
+    "langEn": "English",
+    "langZh": "简体中文"
+  },
+  "documents": {
+    "heading": "文件",
+    "subtitle": "上传 W-2、1099 或税务表格的 ZIP 压缩包。",
+    "dropzone": "拖拽文件至此或点击浏览",
+    "fileTypes": "PDF、PNG、JPG、ZIP — 每个最大 {max} MB",
+    "uploading": "上传中…",
+    "extract": "提取",
+    "extracting": "提取中…",
+    "noDocuments": "暂无文件。",
+    "statusUploaded": "已上传",
+    "statusExtracting": "提取中",
+    "statusExtracted": "已提取",
+    "statusError": "错误"
+  },
+  "review": {
+    "heading": "核查",
+    "subtitle": "核查并修正提取的字段。黄色 = 置信度较低，红色 = 置信度很低。",
+    "emptyHeading": "核查",
+    "emptyBody": "尚无已提取的文件。请前往文件页面上传并提取。",
+    "documentsLink": "文件",
+    "avgConfidence": "平均置信度：{pct}%",
+    "verified": "已验证",
+    "saveChanges": "保存更改",
+    "saving": "保存中…",
+    "loading": "加载中…"
+  },
+  "calculate": {
+    "heading": "计算",
+    "subtitle": "通过 IRS 纳税人 MCP 服务器运行税务计算。",
+    "federalTax": "联邦税",
+    "calculate": "计算",
+    "calculating": "计算中…",
+    "effectiveRate": "有效税率",
+    "bracketBreakdown": "税级明细",
+    "bracketLabel": "{pct} 税级",
+    "creditsApplied": "已应用抵税额",
+    "compareStatuses": "比较申报状态",
+    "compare": "比较",
+    "comparing": "比较中…",
+    "recommended": "推荐：",
+    "taxRefund": "税款 {tax} · 退税 {refund}",
+    "checkCredits": "检查抵税额",
+    "checking": "检查中…",
+    "totalEligible": "合计可用抵税额",
+    "noCredits": "未找到符合条件的抵税额。"
+  },
+  "filing": {
+    "heading": "申报",
+    "comingSoon": "浏览器代理申报功能将在第 6 阶段推出。请先完成步骤 1–4。"
+  }
+}

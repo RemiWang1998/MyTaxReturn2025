@@ -2,26 +2,28 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { LayoutDashboard, FileText, Eye, Calculator, Send, Settings } from 'lucide-react'
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/documents', label: 'Documents', icon: FileText },
-  { href: '/review', label: 'Review', icon: Eye },
-  { href: '/calculate', label: 'Calculate', icon: Calculator },
-  { href: '/filing', label: 'Filing', icon: Send },
-  { href: '/settings', label: 'Settings', icon: Settings },
-]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const t = useTranslations('sidebar')
+
+  const navItems = [
+    { href: '/', label: t('dashboard'), icon: LayoutDashboard },
+    { href: '/documents', label: t('documents'), icon: FileText },
+    { href: '/review', label: t('review'), icon: Eye },
+    { href: '/calculate', label: t('calculate'), icon: Calculator },
+    { href: '/filing', label: t('filing'), icon: Send },
+    { href: '/settings', label: t('settings'), icon: Settings },
+  ]
 
   return (
     <aside className="w-52 shrink-0 border-r border-border bg-sidebar flex flex-col h-full">
       <div className="px-4 py-4 border-b border-border">
         <h1 className="text-sm font-semibold text-sidebar-foreground leading-tight">
-          US Tax Return
-          <span className="block text-xs font-normal text-muted-foreground">2025 · Local</span>
+          {t('title')}
+          <span className="block text-xs font-normal text-muted-foreground">{t('subtitle')}</span>
         </h1>
       </div>
       <nav className="flex-1 p-2 space-y-0.5">

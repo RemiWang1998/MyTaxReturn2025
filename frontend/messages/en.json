@@ -1,0 +1,93 @@
+{
+  "sidebar": {
+    "title": "US Tax Return",
+    "subtitle": "2025 · Local",
+    "dashboard": "Dashboard",
+    "documents": "Documents",
+    "review": "Review",
+    "calculate": "Calculate",
+    "filing": "Filing",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "heading": "Dashboard",
+    "subtitle": "Tax Year 2025 — all data stays on your machine.",
+    "statDocuments": "Documents",
+    "statExtracted": "Extracted",
+    "statRefund": "Est. Refund",
+    "steps": "Steps",
+    "step1": "Add API Key",
+    "step2": "Upload Documents",
+    "step3": "Review Extracted Data",
+    "step4": "Calculate Tax",
+    "step5": "File Return"
+  },
+  "settings": {
+    "heading": "Settings",
+    "subtitle": "Manage your LLM API keys. Keys are Fernet-encrypted and stored locally.",
+    "savedKeys": "Saved Keys",
+    "addKey": "Add / Replace Key",
+    "provider": "Provider",
+    "model": "Model",
+    "apiKey": "API Key",
+    "remove": "Remove",
+    "testSave": "Test & Save",
+    "testing": "Testing…",
+    "saving": "Saving…",
+    "saved": "Key saved successfully.",
+    "language": "Language",
+    "languageLabel": "Display Language",
+    "langEn": "English",
+    "langZh": "简体中文"
+  },
+  "documents": {
+    "heading": "Documents",
+    "subtitle": "Upload W-2s, 1099s, or ZIP archives of your tax forms.",
+    "dropzone": "Drop files here or click to browse",
+    "fileTypes": "PDF, PNG, JPG, ZIP — max {max} MB each",
+    "uploading": "Uploading…",
+    "extract": "Extract",
+    "extracting": "Extracting…",
+    "noDocuments": "No documents yet.",
+    "statusUploaded": "uploaded",
+    "statusExtracting": "extracting",
+    "statusExtracted": "extracted",
+    "statusError": "error"
+  },
+  "review": {
+    "heading": "Review",
+    "subtitle": "Review and correct extracted fields. Yellow = low confidence, red = very low.",
+    "emptyHeading": "Review",
+    "emptyBody": "No extracted documents yet. Go to Documents to upload and extract.",
+    "documentsLink": "Documents",
+    "avgConfidence": "Avg confidence: {pct}%",
+    "verified": "Verified",
+    "saveChanges": "Save Changes",
+    "saving": "Saving…",
+    "loading": "Loading…"
+  },
+  "calculate": {
+    "heading": "Calculate",
+    "subtitle": "Run tax calculations via the IRS taxpayer MCP server.",
+    "federalTax": "Federal Tax",
+    "calculate": "Calculate",
+    "calculating": "Calculating…",
+    "effectiveRate": "Effective Rate",
+    "bracketBreakdown": "Bracket Breakdown",
+    "bracketLabel": "{pct} bracket",
+    "creditsApplied": "Credits Applied",
+    "compareStatuses": "Compare Filing Statuses",
+    "compare": "Compare",
+    "comparing": "Comparing…",
+    "recommended": "Recommended:",
+    "taxRefund": "Tax {tax} · Refund {refund}",
+    "checkCredits": "Check Credits",
+    "checking": "Checking…",
+    "totalEligible": "Total Eligible",
+    "noCredits": "No eligible credits found."
+  },
+  "filing": {
+    "heading": "Filing",
+    "comingSoon": "Browser agent filing will be available in Phase 6. Complete steps 1–4 first."
+  }
+}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { taxReturn } from '@/lib/api'
 import type { CalcResult, StatusComparison, CreditsResult } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ const fmt = (n: number) =>
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 
 export default function CalculatePage() {
+  const t = useTranslations('calculate')
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null)
   const [comparison, setComparison] = useState<StatusComparison | null>(null)
   const [credits, setCredits] = useState<CreditsResult | null>(null)
@@ -37,10 +39,8 @@ export default function CalculatePage() {
   return (
     <div className="max-w-2xl space-y-8">
       <div>
-        <h1 className="text-xl font-semibold">Calculate</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Run tax calculations via the IRS taxpayer MCP server.
-        </p>
+        <h1 className="text-xl font-semibold">{t('heading')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -48,28 +48,28 @@ export default function CalculatePage() {
       {/* Federal Tax */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Federal Tax</h2>
+          <h2 className="text-sm font-semibold">{t('federalTax')}</h2>
           <Button
             size="sm"
             disabled={loading.calc}
             onClick={() => run('calc', taxReturn.calculate, setCalcResult)}
           >
-            {loading.calc ? 'Calculating…' : 'Calculate'}
+            {loading.calc ? t('calculating') : t('calculate')}
           </Button>
         </div>
         {calcResult && (
           <div className="border border-border rounded-lg p-4 space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-3">
-              <Stat label="Federal Tax" value={fmt(calcResult.federal_tax)} />
-              <Stat label="Effective Rate" value={pct(calcResult.effective_rate)} />
+              <Stat label={t('federalTax')} value={fmt(calcResult.federal_tax)} />
+              <Stat label={t('effectiveRate')} value={pct(calcResult.effective_rate)} />
             </div>
             {calcResult.brackets.length > 0 && (
               <div>
-                <p className="text-xs text-muted-foreground mb-2">Bracket Breakdown</p>
+                <p className="text-xs text-muted-foreground mb-2">{t('bracketBreakdown')}</p>
                 <div className="space-y-1">
                   {calcResult.brackets.map((b, i) => (
                     <div key={i} className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">{pct(b.rate)} bracket</span>
+                      <span className="text-muted-foreground">{t('bracketLabel', { pct: pct(b.rate) })}</span>
                       <span className="tabular-nums">{fmt(b.amount)}</span>
                     </div>
                   ))}
@@ -78,7 +78,7 @@ export default function CalculatePage() {
             )}
             {Object.keys(calcResult.credits).length > 0 && (
               <div>
-                <p className="text-xs text-muted-foreground mb-2">Credits Applied</p>
+                <p className="text-xs text-muted-foreground mb-2">{t('creditsApplied')}</p>
                 <div className="space-y-1">
                   {Object.entries(calcResult.credits).map(([name, amt]) => (
                     <div key={name} className="flex justify-between text-xs">
@@ -98,19 +98,19 @@ export default function CalculatePage() {
       {/* Filing Status Comparison */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Compare Filing Statuses</h2>
+          <h2 className="text-sm font-semibold">{t('compareStatuses')}</h2>
           <Button
             size="sm"
             disabled={loading.compare}
             onClick={() => run('compare', taxReturn.compareStatus, setComparison)}
           >
-            {loading.compare ? 'Comparing…' : 'Compare'}
+            {loading.compare ? t('comparing') : t('compare')}
           </Button>
         </div>
         {comparison && (
           <div className="border border-border rounded-lg p-4 text-sm space-y-3">
             <p className="text-xs">
-              Recommended:{' '}
+              {t('recommended')}{' '}
               <span className="font-semibold text-foreground">{comparison.recommended}</span>
             </p>
             <div className="space-y-1">
@@ -123,7 +123,7 @@ export default function CalculatePage() {
                 >
                   <span>{s.status}</span>
                   <span className="tabular-nums text-muted-foreground">
-                    Tax {fmt(s.tax)} · Refund {fmt(s.refund)}
+                    {t('taxRefund', { tax: fmt(s.tax), refund: fmt(s.refund) })}
                   </span>
                 </div>
               ))}
@@ -135,19 +135,19 @@ export default function CalculatePage() {
       {/* Credits */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Check Credits</h2>
+          <h2 className="text-sm font-semibold">{t('checkCredits')}</h2>
           <Button
             size="sm"
             disabled={loading.credits}
             onClick={() => run('credits', taxReturn.checkCredits, setCredits)}
           >
-            {loading.credits ? 'Checking…' : 'Check Credits'}
+            {loading.credits ? t('checking') : t('checkCredits')}
           </Button>
         </div>
         {credits && (
           <div className="border border-border rounded-lg p-4 text-sm space-y-3">
             <div className="flex justify-between items-center">
-              <span className="font-medium">Total Eligible</span>
+              <span className="font-medium">{t('totalEligible')}</span>
               <span className="tabular-nums font-semibold">{fmt(credits.total)}</span>
             </div>
             {credits.eligible.length > 0 && (
@@ -161,7 +161,7 @@ export default function CalculatePage() {
               </div>
             )}
             {credits.eligible.length === 0 && (
-              <p className="text-xs text-muted-foreground">No eligible credits found.</p>
+              <p className="text-xs text-muted-foreground">{t('noCredits')}</p>
             )}
           </div>
         )}

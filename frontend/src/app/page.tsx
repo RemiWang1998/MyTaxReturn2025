@@ -2,18 +2,12 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { apiKeys, documents, taxReturn } from '@/lib/api'
 import type { Document, TaxSummary } from '@/lib/api'
 
-const steps = [
-  { num: 1, label: 'Add API Key', href: '/settings' },
-  { num: 2, label: 'Upload Documents', href: '/documents' },
-  { num: 3, label: 'Review Extracted Data', href: '/review' },
-  { num: 4, label: 'Calculate Tax', href: '/calculate' },
-  { num: 5, label: 'File Return', href: '/filing' },
-]
-
 export default function DashboardPage() {
+  const t = useTranslations('dashboard')
   const [docs, setDocs] = useState<Document[]>([])
   const [summary, setSummary] = useState<TaxSummary | null>(null)
   const [hasApiKey, setHasApiKey] = useState(false)
@@ -30,27 +24,33 @@ export default function DashboardPage() {
   const extracted = docs.filter((d) => d.status === 'extracted').length
   const stepDone = [hasApiKey, docs.length > 0, extracted > 0, !!summary?.estimated_tax, false]
 
+  const steps = [
+    { num: 1, label: t('step1'), href: '/settings' },
+    { num: 2, label: t('step2'), href: '/documents' },
+    { num: 3, label: t('step3'), href: '/review' },
+    { num: 4, label: t('step4'), href: '/calculate' },
+    { num: 5, label: t('step5'), href: '/filing' },
+  ]
+
   return (
     <div className="max-w-xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Tax Year 2025 — all data stays on your machine.
-        </p>
+        <h1 className="text-xl font-semibold">{t('heading')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Documents" value={loading ? '…' : String(docs.length)} />
-        <StatCard label="Extracted" value={loading ? '…' : String(extracted)} />
+        <StatCard label={t('statDocuments')} value={loading ? '…' : String(docs.length)} />
+        <StatCard label={t('statExtracted')} value={loading ? '…' : String(extracted)} />
         <StatCard
-          label="Est. Refund"
+          label={t('statRefund')}
           value={loading || !summary ? '…' : fmt(summary.estimated_refund)}
         />
       </div>
 
       <div className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Steps
+          {t('steps')}
         </h2>
         <ol className="space-y-1.5">
           {steps.map((step, i) => (

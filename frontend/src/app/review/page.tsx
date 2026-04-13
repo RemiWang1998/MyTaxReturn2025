@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { documents, extraction } from '@/lib/api'
 import type { Document, ExtractionResult } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ function confidenceBorder(conf: number) {
 }
 
 export default function ReviewPage() {
+  const t = useTranslations('review')
   const [docs, setDocs] = useState<Document[]>([])
   const [results, setResults] = useState<Record<string, ExtractionResult>>({})
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({})
@@ -56,13 +58,9 @@ export default function ReviewPage() {
   if (docs.length === 0) {
     return (
       <div className="max-w-2xl space-y-2">
-        <h1 className="text-xl font-semibold">Review</h1>
+        <h1 className="text-xl font-semibold">{t('emptyHeading')}</h1>
         <p className="text-sm text-muted-foreground">
-          No extracted documents yet. Go to{' '}
-          <a href="/documents" className="underline">
-            Documents
-          </a>{' '}
-          to upload and extract.
+          {t('emptyBody')}
         </p>
       </div>
     )
@@ -75,10 +73,8 @@ export default function ReviewPage() {
   return (
     <div className="max-w-3xl space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Review</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review and correct extracted fields. Yellow = low confidence, red = very low.
-        </p>
+        <h1 className="text-xl font-semibold">{t('heading')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -103,10 +99,10 @@ export default function ReviewPage() {
             <div className="flex items-center gap-3 text-sm">
               <span className="font-medium">{result.form_type}</span>
               <span className="text-muted-foreground text-xs">
-                Avg confidence: {(result.confidence * 100).toFixed(0)}%
+                {t('avgConfidence', { pct: (result.confidence * 100).toFixed(0) })}
               </span>
               {result.user_verified && (
-                <span className="text-xs text-green-600 font-medium">Verified</span>
+                <span className="text-xs text-green-600 font-medium">{t('verified')}</span>
               )}
             </div>
             <Button
@@ -114,7 +110,7 @@ export default function ReviewPage() {
               onClick={() => handleSave(selected)}
               disabled={saving[selected] || !hasEdits}
             >
-              {saving[selected] ? 'Saving…' : 'Save Changes'}
+              {saving[selected] ? t('saving') : t('saveChanges')}
             </Button>
           </div>
 
@@ -147,7 +143,7 @@ export default function ReviewPage() {
           </div>
         </div>
       ) : selected && !result ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t('loading')}</p>
       ) : null}
     </div>
   )
