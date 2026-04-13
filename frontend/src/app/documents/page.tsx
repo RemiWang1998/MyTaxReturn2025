@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { documents, extraction } from '@/lib/api'
-import type { Document } from '@/lib/api'
+import type { Document, ExtractionResult } from '@/lib/api'
+
+const LOW_CONF_THRESHOLD = 0.8
 import { Button } from '@/components/ui/button'
 
 const ACCEPTED = '.pdf,.png,.jpg,.jpeg,.zip'
@@ -16,6 +18,8 @@ export default function DocumentsPage() {
   const [extracting, setExtracting] = useState<Record<string, boolean>>({})
   const [batchExtracting, setBatchExtracting] = useState(false)
   const [batchReExtracting, setBatchReExtracting] = useState(false)
+  const [batchLowConfExtracting, setBatchLowConfExtracting] = useState(false)
+  const [confidences, setConfidences] = useState<Record<string, number>>({})
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -33,7 +37,18 @@ export default function DocumentsPage() {
     error: 'text-destructive',
   }
 
-  const load = () => documents.list().then(setDocs)
+  const load = () =>
+    documents.list().then((all) => {
+      setDocs(all)
+      const extracted = all.filter((d) => d.status === 'extracted')
+      Promise.allSettled(extracted.map((d) => extraction.result(d.id))).then((results) => {
+        const map: Record<string, number> = {}
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled') map[extracted[i].id] = (r.value as ExtractionResult).confidence
+        })
+        setConfidences(map)
+      })
+    })
   useEffect(() => { load() }, [])
 
   async function handleFiles(files: File[]) {
@@ -82,6 +97,22 @@ export default function DocumentsPage() {
     }
   }
 
+  async function handleBatchLowConfExtract() {
+    const ids = docs
+      .filter((d) => d.status === 'extracted' && (confidences[d.id] ?? 1) < LOW_CONF_THRESHOLD)
+      .map((d) => d.id)
+    if (!ids.length) return
+    setBatchLowConfExtracting(true)
+    setExtracting(Object.fromEntries(ids.map((id) => [id, true])))
+    try {
+      await Promise.allSettled(ids.map((id) => extraction.run(id)))
+      await load()
+    } finally {
+      setBatchLowConfExtracting(false)
+      setExtracting({})
+    }
+  }
+
   async function handleBatchReExtract() {
     const ids = docs.filter((d) => d.status === 'extracted' || d.status === 'error').map((d) => d.id)
     if (!ids.length) return
@@ -123,6 +154,11 @@ export default function DocumentsPage() {
           {docs.some((d) => d.status === 'extracted' || d.status === 'error') && (
             <Button variant="outline" size="sm" disabled={batchReExtracting} onClick={handleBatchReExtract}>
               {batchReExtracting ? t('extractingAll') : t('reExtractAll')}
+            </Button>
+          )}
+          {docs.some((d) => d.status === 'extracted' && (confidences[d.id] ?? 1) < LOW_CONF_THRESHOLD) && (
+            <Button variant="outline" size="sm" disabled={batchLowConfExtracting} onClick={handleBatchLowConfExtract}>
+              {batchLowConfExtracting ? t('extractingAll') : t('reExtractLowConf')}
             </Button>
           )}
         </div>

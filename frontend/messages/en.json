@@ -50,6 +50,7 @@
     "extracting": "Extracting…",
     "reExtract": "Re-extract",
     "reExtractAll": "Re-extract All",
+    "reExtractLowConf": "Re-extract Low Confidence",
     "extractAll": "Extract All",
     "extractingAll": "Extracting…",
     "noDocuments": "No documents yet.",
