@@ -173,10 +173,10 @@ async def parse_document(doc: Document, db: AsyncSession) -> list[ExtractedData]
 
     images = [(_b64(img), media_type) for img in page_images]
 
-    # Detect form type (use first page for speed)
+    # Detect form type using all pages (form type label may appear on any page)
     form_type = doc.doc_type
     if not form_type:
-        detected = await _detect_form_type(llm, images[:1])
+        detected = await _detect_form_type(llm, images)
         if detected in PROMPT_MAP or detected == "1099-consolidated":
             form_type = detected
         else:
