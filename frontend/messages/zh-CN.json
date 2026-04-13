@@ -51,6 +51,7 @@
     "reExtract": "重新提取",
     "reExtractAll": "批量重新提取",
     "reExtractLowConf": "重新提取低置信度文件",
+    "lowConfidence": "低置信度",
     "extractAll": "批量提取",
     "extractingAll": "提取中…",
     "noDocuments": "暂无文件。",

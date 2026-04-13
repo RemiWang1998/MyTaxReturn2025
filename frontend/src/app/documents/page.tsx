@@ -202,6 +202,11 @@ export default function DocumentsPage() {
               <span className={`text-xs shrink-0 ${statusColor[doc.status]}`}>
                 {statusLabel[doc.status]}
               </span>
+              {doc.status === 'extracted' && confidences[doc.id] !== undefined && confidences[doc.id] < LOW_CONF_THRESHOLD && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 shrink-0">
+                  {(confidences[doc.id] * 100).toFixed(0)}% · {t('lowConfidence')}
+                </span>
+              )}
               {doc.error_msg && (
                 <span
                   className="text-xs text-destructive truncate max-w-48"
