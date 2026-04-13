@@ -15,6 +15,7 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false)
   const [extracting, setExtracting] = useState<Record<string, boolean>>({})
   const [batchExtracting, setBatchExtracting] = useState(false)
+  const [batchReExtracting, setBatchReExtracting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -81,6 +82,20 @@ export default function DocumentsPage() {
     }
   }
 
+  async function handleBatchReExtract() {
+    const ids = docs.filter((d) => d.status === 'extracted' || d.status === 'error').map((d) => d.id)
+    if (!ids.length) return
+    setBatchReExtracting(true)
+    setExtracting(Object.fromEntries(ids.map((id) => [id, true])))
+    try {
+      await Promise.allSettled(ids.map((id) => extraction.run(id)))
+      await load()
+    } finally {
+      setBatchReExtracting(false)
+      setExtracting({})
+    }
+  }
+
   async function handleDelete(docId: string) {
     await documents.delete(docId)
     load()
@@ -99,11 +114,18 @@ export default function DocumentsPage() {
           <h1 className="text-xl font-semibold">{t('heading')}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
         </div>
-        {docs.some((d) => d.status === 'uploaded') && (
-          <Button size="sm" disabled={batchExtracting} onClick={handleBatchExtract} className="shrink-0 mt-0.5">
-            {batchExtracting ? t('extractingAll') : t('extractAll')}
-          </Button>
-        )}
+        <div className="flex gap-2 shrink-0 mt-0.5">
+          {docs.some((d) => d.status === 'uploaded') && (
+            <Button size="sm" disabled={batchExtracting} onClick={handleBatchExtract}>
+              {batchExtracting ? t('extractingAll') : t('extractAll')}
+            </Button>
+          )}
+          {docs.some((d) => d.status === 'extracted' || d.status === 'error') && (
+            <Button variant="outline" size="sm" disabled={batchReExtracting} onClick={handleBatchReExtract}>
+              {batchReExtracting ? t('extractingAll') : t('reExtractAll')}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div

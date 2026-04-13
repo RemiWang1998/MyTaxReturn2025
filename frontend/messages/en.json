@@ -49,6 +49,7 @@
     "extract": "Extract",
     "extracting": "Extracting…",
     "reExtract": "Re-extract",
+    "reExtractAll": "Re-extract All",
     "extractAll": "Extract All",
     "extractingAll": "Extracting…",
     "noDocuments": "No documents yet.",
