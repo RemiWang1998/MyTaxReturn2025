@@ -238,13 +238,14 @@ The `irs-taxpayer-mcp` server runs as a sidecar Node.js process. The backend com
 - ✅ `services/mcp_client.py` — connect to irs-taxpayer-mcp subprocess
 - ✅ `routers/tax_return.py` — aggregated data + MCP calculation endpoints
 
-### Phase 5: Frontend
-- Layout (sidebar nav), API client (`lib/api.ts`)
-- Settings page (API key form)
-- Documents page (upload zone, document list)
-- Review page (editable extracted data, confidence highlighting)
-- Calculate page (tax breakdown, filing status comparison, credits)
-- Dashboard (status overview, step-by-step guide)
+### Phase 5: Frontend ✅
+- ✅ Layout (sidebar nav), API client (`lib/api.ts`)
+- ✅ Settings page (API key form)
+- ✅ Documents page (upload zone, document list)
+- ✅ Review page (editable extracted data, confidence highlighting)
+- ✅ Calculate page (tax breakdown, filing status comparison, credits)
+- ✅ Dashboard (status overview, step-by-step guide)
+- ✅ Filing page (stub, implemented in Phase 6)
 
 ### Phase 6: Browser Agent
 - `services/filing_agent.py` — browser-use Agent with callbacks + SSE

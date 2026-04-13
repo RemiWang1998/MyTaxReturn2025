@@ -1,65 +1,96 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { documents, taxReturn } from '@/lib/api'
+import type { Document, TaxSummary } from '@/lib/api'
+
+const steps = [
+  { num: 1, label: 'Add API Key', href: '/settings' },
+  { num: 2, label: 'Upload Documents', href: '/documents' },
+  { num: 3, label: 'Review Extracted Data', href: '/review' },
+  { num: 4, label: 'Calculate Tax', href: '/calculate' },
+  { num: 5, label: 'File Return', href: '/filing' },
+]
+
+export default function DashboardPage() {
+  const [docs, setDocs] = useState<Document[]>([])
+  const [summary, setSummary] = useState<TaxSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.allSettled([
+      documents.list().then(setDocs),
+      taxReturn.summary().then(setSummary),
+    ]).finally(() => setLoading(false))
+  }, [])
+
+  const extracted = docs.filter((d) => d.status === 'extracted').length
+  const stepDone = [false, docs.length > 0, extracted > 0, !!summary?.estimated_tax, false]
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="max-w-xl space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Tax Year 2025 — all data stays on your machine.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Documents" value={loading ? '…' : String(docs.length)} />
+        <StatCard label="Extracted" value={loading ? '…' : String(extracted)} />
+        <StatCard
+          label="Est. Refund"
+          value={loading || !summary ? '…' : fmt(summary.estimated_refund)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Steps
+        </h2>
+        <ol className="space-y-1.5">
+          {steps.map((step, i) => (
+            <li key={step.num}>
+              <Link
+                href={step.href}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border hover:bg-accent transition-colors text-sm"
+              >
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    stepDone[i]
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {stepDone[i] ? '✓' : step.num}
+                </span>
+                <span className={stepDone[i] ? 'text-foreground' : 'text-muted-foreground'}>
+                  {step.label}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </div>
     </div>
-  );
+  )
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-border rounded-lg px-3 py-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold mt-0.5 tabular-nums">{value}</p>
+    </div>
+  )
+}
+
+function fmt(n: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(n)
 }
