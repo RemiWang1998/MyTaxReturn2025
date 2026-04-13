@@ -58,7 +58,9 @@
     "statusUploaded": "uploaded",
     "statusExtracting": "extracting",
     "statusExtracted": "extracted",
-    "statusError": "error"
+    "statusError": "error",
+    "docTypeAuto": "Auto-detect",
+    "notExtracted": "Extract this document to view its data."
   },
   "review": {
     "heading": "Review",

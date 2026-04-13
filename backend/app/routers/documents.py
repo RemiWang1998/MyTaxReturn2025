@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.document import Document
-from app.schemas.document import DocumentResponse
+from app.schemas.document import DocumentResponse, DocumentUpdate
 from app.config import settings
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -129,6 +129,17 @@ async def get_document(doc_id: int, db: AsyncSession = Depends(get_db)):
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    return doc
+
+
+@router.patch("/{doc_id}", response_model=DocumentResponse)
+async def update_document(doc_id: int, body: DocumentUpdate, db: AsyncSession = Depends(get_db)):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    doc.doc_type = body.doc_type
+    await db.commit()
+    await db.refresh(doc)
     return doc
 
 

@@ -37,6 +37,8 @@ export const documents = {
   list: () => request<Document[]>("/api/documents"),
   get: (id: string) => request<Document>(`/api/documents/${id}`),
   delete: (id: string) => request<void>(`/api/documents/${id}`, { method: "DELETE" }),
+  updateDocType: (id: string, doc_type: string | null) =>
+    request<Document>(`/api/documents/${id}`, { method: "PATCH", body: JSON.stringify({ doc_type }) }),
   previewUrl: (id: string) => `${BASE_URL}/api/documents/${id}/preview`,
 };
 

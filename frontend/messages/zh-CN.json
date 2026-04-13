@@ -58,7 +58,9 @@
     "statusUploaded": "已上传",
     "statusExtracting": "提取中",
     "statusExtracted": "已提取",
-    "statusError": "错误"
+    "statusError": "错误",
+    "docTypeAuto": "自动识别",
+    "notExtracted": "请先提取该文件以查看数据。"
   },
   "review": {
     "heading": "核查",

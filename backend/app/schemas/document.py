@@ -1,5 +1,15 @@
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel
+
+_DOC_TYPES = Literal[
+    "w2", "1099-nec", "1099-int", "1099-div", "1099-misc",
+    "1099-b", "1099-da", "1099-g", "1099-consolidated", "other"
+]
+
+
+class DocumentUpdate(BaseModel):
+    doc_type: _DOC_TYPES | None = None
 
 
 class DocumentResponse(BaseModel):
