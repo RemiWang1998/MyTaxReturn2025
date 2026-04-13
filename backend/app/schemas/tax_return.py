@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TaxReturnResponse(BaseModel):
@@ -13,3 +13,25 @@ class TaxReturnResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class TaxReturnUpdate(BaseModel):
+    filing_status: str | None = None
+    tax_year: int | None = None
+    overrides: dict | None = None  # field-level manual overrides merged into data_json
+
+
+class CalculateRequest(BaseModel):
+    filing_status: str = Field(default="single", description="single | married_filing_jointly | married_filing_separately | head_of_household | qualifying_surviving_spouse")
+    tax_year: int = Field(default=2024)
+    state: str | None = Field(default=None, description="Two-letter state code for state tax estimate")
+
+
+class CompareStatusRequest(BaseModel):
+    tax_year: int = Field(default=2024)
+
+
+class CheckCreditsRequest(BaseModel):
+    filing_status: str = Field(default="single")
+    dependents: int = Field(default=0, ge=0)
+    tax_year: int = Field(default=2024)

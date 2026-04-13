@@ -233,10 +233,10 @@ The `irs-taxpayer-mcp` server runs as a sidecar Node.js process. The backend com
 - ✅ Prompt templates for W-2, 1099 family (W-2, 1099-INT/DIV/B/R/S/MISC/NEC/DA/G)
 - ✅ `routers/extraction.py` — trigger/get/edit extraction results
 
-### Phase 4: Tax Aggregation & MCP Integration
-- `services/tax_aggregator.py` — merge all extracted data
-- `services/mcp_client.py` — connect to irs-taxpayer-mcp subprocess
-- `routers/tax_return.py` — aggregated data + MCP calculation endpoints
+### Phase 4: Tax Aggregation & MCP Integration ✅
+- ✅ `services/tax_aggregator.py` — merge all extracted data
+- ✅ `services/mcp_client.py` — connect to irs-taxpayer-mcp subprocess
+- ✅ `routers/tax_return.py` — aggregated data + MCP calculation endpoints
 
 ### Phase 5: Frontend
 - Layout (sidebar nav), API client (`lib/api.ts`)

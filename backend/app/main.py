@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
-from app.routers import documents, extraction
+from app.routers import documents, extraction, tax_return
 
 
 @asynccontextmanager
@@ -27,6 +27,7 @@ app.add_middleware(
 
 app.include_router(documents.router)
 app.include_router(extraction.router)
+app.include_router(tax_return.router)
 
 
 @app.get("/health")
