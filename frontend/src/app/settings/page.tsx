@@ -23,13 +23,17 @@ function getCurrentLocale() {
 export default function SettingsPage() {
   const t = useTranslations('settings')
   const [keys, setKeys] = useState<{ provider: string; model_name: string }[]>([])
+  const [loadingKeys, setLoadingKeys] = useState(true)
   const [form, setForm] = useState({ provider: 'anthropic', api_key: '', model_name: 'claude-opus-4-6' })
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [locale, setLocale] = useState('en')
-  const [testStatus, setTestStatus] = useState<Record<string, { ok: boolean; msg: string } | 'testing'>>( {})
+  const [testStatus, setTestStatus] = useState<Record<string, { ok: boolean; msg: string } | 'testing'>>({})
 
-  const load = () => apiKeys.list().then(setKeys)
+  const load = () => {
+    setLoadingKeys(true)
+    return apiKeys.list().then(setKeys).finally(() => setLoadingKeys(false))
+  }
   useEffect(() => {
     load()
     setLocale(getCurrentLocale())
@@ -58,15 +62,23 @@ export default function SettingsPage() {
   }
 
   async function handleDelete(provider: string) {
-    await apiKeys.delete(provider)
-    setTestStatus((s) => { const n = { ...s }; delete n[provider]; return n })
-    load()
+    try {
+      await apiKeys.delete(provider)
+      setTestStatus((s) => { const n = { ...s }; delete n[provider]; return n })
+      load()
+    } catch (err) {
+      setErrorMsg(String(err))
+    }
   }
 
   async function handleTestSaved(provider: string) {
     setTestStatus((s) => ({ ...s, [provider]: 'testing' }))
-    const res = await apiKeys.testSaved(provider)
-    setTestStatus((s) => ({ ...s, [provider]: { ok: res.ok, msg: res.error ?? '' } }))
+    try {
+      const res = await apiKeys.testSaved(provider)
+      setTestStatus((s) => ({ ...s, [provider]: { ok: res.ok, msg: res.error ?? '' } }))
+    } catch (err) {
+      setTestStatus((s) => ({ ...s, [provider]: { ok: false, msg: String(err) } }))
+    }
   }
 
   const busy = status === 'testing' || status === 'saving'
@@ -78,9 +90,13 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
-      {keys.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium">{t('savedKeys')}</h2>
+      <div className="space-y-2">
+        <h2 className="text-sm font-medium">{t('savedKeys')}</h2>
+        {loadingKeys ? (
+          <p className="text-sm text-muted-foreground">{t('loadingKeys')}</p>
+        ) : keys.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('noKeys')}</p>
+        ) : (
           <div className="space-y-1">
             {keys.map((k) => {
               const ts = testStatus[k.provider]
@@ -109,8 +125,8 @@ export default function SettingsPage() {
               )
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <form onSubmit={handleSave} className="space-y-4">
         <h2 className="text-sm font-medium">{t('addKey')}</h2>

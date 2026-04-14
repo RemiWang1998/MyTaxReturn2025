@@ -37,6 +37,8 @@
     "saved": "Key saved successfully.",
     "testConnection": "Test Connection",
     "connectionOk": "Connection successful.",
+    "loadingKeys": "Loading…",
+    "noKeys": "No API keys saved yet.",
     "language": "Language",
     "languageLabel": "Display Language",
     "langEn": "English",
@@ -62,7 +64,12 @@
     "statusExtracted": "extracted",
     "statusError": "error",
     "docTypeAuto": "Auto-detect",
-    "notExtracted": "Extract this document to view its data."
+    "notExtracted": "Extract this document to view its data.",
+    "deleteAll": "Delete All",
+    "deletingAll": "Deleting…",
+    "deleteAllConfirm": "Delete all documents?",
+    "deleteAllYes": "Yes",
+    "deleteAllCancel": "Cancel"
   },
   "review": {
     "heading": "Review",
@@ -103,7 +110,8 @@
     "checkCredits": "Check Credits",
     "checking": "Checking…",
     "totalEligible": "Total Eligible",
-    "noCredits": "No eligible credits found."
+    "noCredits": "No eligible credits found.",
+    "calculateHint": "Press Calculate to run the federal tax calculation."
   },
   "filing": {
     "heading": "Filing",

@@ -18,8 +18,6 @@ const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 export default function CalculatePage() {
   const t = useTranslations('calculate')
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null)
-
-
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
 
@@ -57,6 +55,20 @@ export default function CalculatePage() {
             {loading.calc ? t('calculating') : t('calculate')}
           </Button>
         </div>
+        {!calcResult && !loading.calc && (
+          <p className="text-sm text-muted-foreground py-4 text-center">{t('calculateHint')}</p>
+        )}
+        {loading.calc && (
+          <div className="border border-border rounded-lg p-4 space-y-3 animate-pulse">
+            <div className="grid grid-cols-3 gap-3">
+              {[0, 1, 2].map((i) => <div key={i} className="h-14 bg-muted rounded-md" />)}
+            </div>
+            <div className="h-16 bg-muted rounded-md" />
+            <div className="grid grid-cols-2 gap-3">
+              {[0, 1].map((i) => <div key={i} className="h-14 bg-muted rounded-md" />)}
+            </div>
+          </div>
+        )}
         {calcResult && (
           <div className="border border-border rounded-lg p-4 space-y-4 text-sm">
             {/* Income Summary */}
@@ -124,42 +136,6 @@ export default function CalculatePage() {
         </section>
       )}
 
-      {/* Filing Status Comparison — hidden */}
-      {false && <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">{t('compareStatuses')}</h2>
-          <Button
-            size="sm"
-            disabled={loading.compare}
-            onClick={() => run('compare', taxReturn.compareStatus, setComparison)}
-          >
-            {loading.compare ? t('comparing') : t('compare')}
-          </Button>
-        </div>
-        {comparison && (
-          <div className="border border-border rounded-lg p-4 text-sm space-y-3">
-            <p className="text-xs">
-              {t('recommended')}{' '}
-              <span className="font-semibold text-foreground">{comparison.recommended}</span>
-            </p>
-            <div className="space-y-1">
-              {comparison.statuses.map((s, i) => (
-                <div
-                  key={i}
-                  className={`flex justify-between items-center text-xs px-2 py-1.5 rounded ${
-                    s.status === comparison.recommended ? 'bg-primary/10 font-medium' : ''
-                  }`}
-                >
-                  <span>{s.status}</span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {t('taxRefund', { tax: fmt(s.tax), refund: fmt(s.refund) })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>}
 
     </div>
   )

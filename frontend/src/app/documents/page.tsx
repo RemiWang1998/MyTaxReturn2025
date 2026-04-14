@@ -45,6 +45,9 @@ export default function DocumentsPage() {
   const [deletedFields, setDeletedFields] = useState<Record<string, Set<string>>>({})
   const [subIdx, setSubIdx] = useState(0)
 
+  const [pageError, setPageError] = useState<string | null>(null)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+
   // splitters
   const [listWidth, setListWidth] = useState(272)   // left column (doc list)
   const [viewerWidth, setViewerWidth] = useState(480) // right column (source viewer)
@@ -131,14 +134,18 @@ export default function DocumentsPage() {
   }, [results])
 
   async function handleFiles(files: File[]) {
-    const valid = files.filter((f) => {
-      if (f.size > MAX_MB * 1024 * 1024) { alert(`${f.name} exceeds ${MAX_MB} MB`); return false }
-      return true
-    })
+    const valid: File[] = []
+    const oversized: string[] = []
+    for (const f of files) {
+      if (f.size > MAX_MB * 1024 * 1024) oversized.push(f.name)
+      else valid.push(f)
+    }
+    if (oversized.length) setPageError(`${oversized.join(', ')} exceeds ${MAX_MB} MB`)
     if (!valid.length) return
+    setPageError(null)
     setUploading(true)
     try { await documents.upload(valid); await load() }
-    catch (err) { alert(String(err)) }
+    catch (err) { setPageError(String(err)) }
     finally { setUploading(false) }
   }
 
@@ -167,9 +174,10 @@ export default function DocumentsPage() {
   }
 
   async function handleExtract(docId: string) {
+    setPageError(null)
     setExtracting((e) => ({ ...e, [docId]: true }))
     try { await extraction.run(docId); await pollUntilDone([docId]) }
-    catch (err) { alert(String(err)) }
+    catch (err) { setPageError(String(err)) }
     finally { setExtracting((e) => ({ ...e, [docId]: false })) }
   }
 
@@ -193,7 +201,8 @@ export default function DocumentsPage() {
 
   async function handleDeleteAll() {
     if (!docs.length) return
-    if (!confirm(`Delete all ${docs.length} document${docs.length === 1 ? '' : 's'}?`)) return
+    if (!confirmDeleteAll) { setConfirmDeleteAll(true); return }
+    setConfirmDeleteAll(false)
     setDeletingAll(true)
     setSelected(null)
     try { await Promise.allSettled(docs.map((d) => documents.delete(d.id))); await load() }
@@ -255,7 +264,7 @@ export default function DocumentsPage() {
       setSubIdx(0)
       setEdits((e) => { const n = { ...e }; delete n[rid]; return n })
       setDeletedFields((d) => { const n = { ...d }; delete n[rid]; return n })
-    } catch (err) { alert(String(err)) }
+    } catch (err) { setPageError(String(err)) }
   }
 
   async function handleSave(result: ExtractionResult) {
@@ -281,7 +290,7 @@ export default function DocumentsPage() {
       })
       setEdits((e) => ({ ...e, [rid]: {} }))
       setDeletedFields((d) => { const n = { ...d }; delete n[rid]; return n })
-    } catch (err) { alert(String(err)) }
+    } catch (err) { setPageError(String(err)) }
     finally { setSaving((s) => ({ ...s, [rid]: false })) }
   }
 
@@ -317,6 +326,13 @@ export default function DocumentsPage() {
           <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
         </div>
 
+        {/* Error banner */}
+        {pageError && (
+          <p role="alert" className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+            {pageError}
+          </p>
+        )}
+
         {/* Batch buttons */}
         <div className="flex flex-wrap gap-2">
           {docs.some((d) => d.status === 'uploaded') && (
@@ -335,10 +351,18 @@ export default function DocumentsPage() {
             </Button>
           )}
           {docs.length > 0 && (
-            <Button variant="ghost" size="sm" disabled={deletingAll} onClick={handleDeleteAll}
-              className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10">
-              {deletingAll ? 'Deleting…' : 'Delete All'}
-            </Button>
+            confirmDeleteAll ? (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-xs text-destructive">{t('deleteAllConfirm')}</span>
+                <Button variant="destructive" size="xs" disabled={deletingAll} onClick={handleDeleteAll}>{t('deleteAllYes')}</Button>
+                <Button variant="ghost" size="xs" onClick={() => setConfirmDeleteAll(false)}>{t('deleteAllCancel')}</Button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" disabled={deletingAll} onClick={handleDeleteAll}
+                className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10">
+                {deletingAll ? t('deletingAll') : t('deleteAll')}
+              </Button>
+            )
           )}
         </div>
 

@@ -37,6 +37,8 @@
     "saved": "密钥已成功保存。",
     "testConnection": "测试连接",
     "connectionOk": "连接成功。",
+    "loadingKeys": "加载中…",
+    "noKeys": "尚未保存任何 API 密钥。",
     "language": "语言",
     "languageLabel": "显示语言",
     "langEn": "English",
@@ -62,7 +64,12 @@
     "statusExtracted": "已提取",
     "statusError": "错误",
     "docTypeAuto": "自动识别",
-    "notExtracted": "请先提取该文件以查看数据。"
+    "notExtracted": "请先提取该文件以查看数据。",
+    "deleteAll": "全部删除",
+    "deletingAll": "删除中…",
+    "deleteAllConfirm": "删除所有文件？",
+    "deleteAllYes": "确认",
+    "deleteAllCancel": "取消"
   },
   "review": {
     "heading": "核查",
@@ -103,7 +110,8 @@
     "checkCredits": "检查抵税额",
     "checking": "检查中…",
     "totalEligible": "合计可用抵税额",
-    "noCredits": "未找到符合条件的抵税额。"
+    "noCredits": "未找到符合条件的抵税额。",
+    "calculateHint": "点击「计算」以运行联邦税计算。"
   },
   "filing": {
     "heading": "申报",

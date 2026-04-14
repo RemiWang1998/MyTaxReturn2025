@@ -7,7 +7,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`API ${res.status}: ${text}`);
+    let message = text;
+    try {
+      const json = JSON.parse(text);
+      message = json.detail ?? json.message ?? text;
+    } catch { /* not JSON */ }
+    throw new Error(message);
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') {
     return undefined as T;

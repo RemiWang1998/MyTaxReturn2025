@@ -1,5 +1,14 @@
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
+
+FilingStatus = Literal[
+    "single",
+    "married_filing_jointly",
+    "married_filing_separately",
+    "head_of_household",
+    "qualifying_surviving_spouse",
+]
 
 
 class TaxReturnResponse(BaseModel):
@@ -22,7 +31,7 @@ class TaxReturnUpdate(BaseModel):
 
 
 class CalculateRequest(BaseModel):
-    filing_status: str = Field(default="single", description="single | married_filing_jointly | married_filing_separately | head_of_household | qualifying_surviving_spouse")
+    filing_status: FilingStatus = Field(default="single")
     tax_year: int = Field(default=2025)
     state: str | None = Field(default=None, description="Two-letter state code for state tax estimate")
 
@@ -32,6 +41,6 @@ class CompareStatusRequest(BaseModel):
 
 
 class CheckCreditsRequest(BaseModel):
-    filing_status: str = Field(default="single")
+    filing_status: FilingStatus = Field(default="single")
     dependents: int = Field(default=0, ge=0)
     tax_year: int = Field(default=2025)

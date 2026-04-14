@@ -15,7 +15,18 @@ from app.schemas.tax_return import (
     CalculateRequest,
     CompareStatusRequest,
     CheckCreditsRequest,
+    FilingStatus,
 )
+
+_VALID_FILING_STATUSES = set(FilingStatus.__args__)  # type: ignore[attr-defined]
+
+
+def _validate_filing_status(filing_status: str) -> None:
+    if filing_status not in _VALID_FILING_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid filing_status '{filing_status}'. Must be one of: {', '.join(sorted(_VALID_FILING_STATUSES))}",
+        )
 
 router = APIRouter(prefix="/api/return", tags=["tax_return"])
 
@@ -92,6 +103,7 @@ async def calculate_taxes(req: CalculateRequest, db: AsyncSession = Depends(get_
     overrides = data.get("overrides", {})
     total_income = float(overrides.get("total_income", data.get("total_income", 0.0)))
     filing_status = tr.filing_status or req.filing_status
+    _validate_filing_status(filing_status)
 
     def eff(key: str) -> float:
         return float(overrides.get(key, data.get(key, 0.0)))
@@ -172,6 +184,7 @@ async def check_credits(req: CheckCreditsRequest, db: AsyncSession = Depends(get
     overrides = data.get("overrides", {})
     total_income = float(overrides.get("total_income", data.get("total_income", 0.0)))
     filing_status = tr.filing_status or req.filing_status
+    _validate_filing_status(filing_status)
 
     try:
         result = await mcp_client.check_credit_eligibility(

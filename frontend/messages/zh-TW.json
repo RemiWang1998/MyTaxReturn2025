@@ -37,6 +37,8 @@
     "saved": "金鑰已成功儲存。",
     "testConnection": "測試連線",
     "connectionOk": "連線成功。",
+    "loadingKeys": "載入中…",
+    "noKeys": "尚未儲存任何 API 金鑰。",
     "language": "語言",
     "languageLabel": "顯示語言",
     "langEn": "English",
@@ -62,7 +64,12 @@
     "statusExtracted": "已擷取",
     "statusError": "錯誤",
     "docTypeAuto": "自動辨識",
-    "notExtracted": "請先擷取此文件以檢視資料。"
+    "notExtracted": "請先擷取此文件以檢視資料。",
+    "deleteAll": "全部刪除",
+    "deletingAll": "刪除中…",
+    "deleteAllConfirm": "刪除所有文件？",
+    "deleteAllYes": "確認",
+    "deleteAllCancel": "取消"
   },
   "review": {
     "heading": "核查",
@@ -103,7 +110,8 @@
     "checkCredits": "檢查稅額抵減",
     "checking": "檢查中…",
     "totalEligible": "合計可用稅額抵減",
-    "noCredits": "未找到符合條件的稅額抵減。"
+    "noCredits": "未找到符合條件的稅額抵減。",
+    "calculateHint": "點擊「計算」以執行聯邦稅計算。"
   },
   "filing": {
     "heading": "申報",
