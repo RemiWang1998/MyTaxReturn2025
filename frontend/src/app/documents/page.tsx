@@ -88,7 +88,7 @@ export default function DocumentsPage() {
   const load = () =>
     documents.list().then((all) => {
       setDocs(all)
-      const extracted = all.filter((d) => d.status === 'extracted')
+      const extracted = all.filter((d) => d.status === 'extracted' || d.status === 'error')
       Promise.allSettled(extracted.map((d) => extraction.results(d.id))).then((settled) => {
         const confMap: Record<string, number> = {}
         const resMap: Record<string, ExtractionResult[]> = {}
@@ -107,6 +107,17 @@ export default function DocumentsPage() {
     })
 
   useEffect(() => { load() }, [])
+
+  // When a doc that is still extracting is selected, fetch any already-committed
+  // sub-form results so they appear immediately without waiting for full completion.
+  useEffect(() => {
+    if (!selected) return
+    const doc = docs.find((d) => d.id === selected)
+    if (doc?.status !== 'extracting') return
+    extraction.results(selected).then((arr) => {
+      if (arr.length > 0) setResults((prev) => ({ ...prev, [selected]: arr }))
+    }).catch(() => {})
+  }, [selected, docs])
 
   useEffect(() => {
     setConfidences((prev) => {
@@ -132,12 +143,24 @@ export default function DocumentsPage() {
   }
 
   // Poll until none of the given doc IDs are still in "extracting" state, then do a full load.
+  // While polling, eagerly fetch results for any extracting doc that is currently selected
+  // so sub-form results appear as soon as each one is committed.
   async function pollUntilDone(docIds: string[]) {
     const ids = new Set(docIds)
     for (let i = 0; i < 120; i++) {
       await new Promise<void>((r) => setTimeout(r, 1500))
       const all = await documents.list()
       setDocs(all)
+      // Fetch partial results for all still-extracting docs so sub-forms appear immediately
+      const stillExtracting = all.filter((d) => ids.has(d.id) && d.status === 'extracting')
+      await Promise.allSettled(
+        stillExtracting.map(async (d) => {
+          try {
+            const arr = await extraction.results(d.id)
+            if (arr.length > 0) setResults((prev) => ({ ...prev, [d.id]: arr }))
+          } catch { /* ignore mid-extraction fetch errors */ }
+        })
+      )
       if (!all.some((d) => ids.has(d.id) && d.status === 'extracting')) break
     }
     await load()
@@ -243,8 +266,15 @@ export default function DocumentsPage() {
       Object.entries({ ...result.data, ...(edits[rid] ?? {}) })
         .filter(([field]) => !deleted.has(field))
     )
+    // Edited fields are user-verified → confidence 1.0; others keep their stored value.
+    const effectiveConfs: Record<string, number> = Object.fromEntries(
+      Object.keys(merged).map((field) => [
+        field,
+        (edits[rid] ?? {})[field] !== undefined ? 1.0 : (result.field_confidences[field] ?? 1.0),
+      ])
+    )
     try {
-      const updated = await extraction.update(rid, merged)
+      const updated = await extraction.update(rid, merged, effectiveConfs)
       setResults((prev) => {
         const docResults = prev[String(result.document_id)] ?? []
         return { ...prev, [String(result.document_id)]: docResults.map((r) => r.id === result.id ? updated : r) }
@@ -268,12 +298,13 @@ export default function DocumentsPage() {
   const resultDeleted = rid ? (deletedFields[rid] ?? new Set<string>()) : new Set<string>()
   const hasEdits = Object.keys(resultEdits).length > 0 || resultDeleted.size > 0
 
-  // Live confidence: average of field confidences for non-deleted fields
+  // Live confidence: average of field confidences for non-deleted fields.
+  // User-edited fields are treated as confidence 1.0.
   const displayedConfidence = (() => {
     if (!result) return 0
     const confs = Object.entries(result.field_confidences)
       .filter(([field]) => !resultDeleted.has(field))
-      .map(([, v]) => v)
+      .map(([field, v]) => resultEdits[field] !== undefined ? 1 : v)
     return confs.length > 0 ? confs.reduce((a, b) => a + b, 0) / confs.length : result.confidence
   })()
 
@@ -423,7 +454,7 @@ export default function DocumentsPage() {
           <div className="flex flex-col xl:flex-row xl:items-start">
             {/* Review data */}
             <div className="flex-1 min-w-0 space-y-4">
-              {selectedDoc.status !== 'extracted' ? (
+              {selectedDoc.status === 'uploaded' || (selectedDoc.status === 'error' && docResults.length === 0) ? (
                 <p className="text-sm text-muted-foreground">{t('notExtracted')}</p>
               ) : docResults.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{tR('loading')}</p>
@@ -479,7 +510,7 @@ export default function DocumentsPage() {
                         {Object.entries(result.data)
                           .filter(([field, value]) => field !== 'recipient_tin' && !Array.isArray(value) && !resultDeleted.has(field))
                           .map(([field, value]) => {
-                            const conf = result.field_confidences[field] ?? 1
+                            const conf = resultEdits[field] !== undefined ? 1 : (result.field_confidences[field] ?? 1)
                             const current = resultEdits[field] !== undefined ? resultEdits[field] : String(value ?? '')
                             return (
                               <div key={field} className={`border rounded-md p-2.5 ${confidenceBorder(conf)}`}>

@@ -43,6 +43,7 @@ Return a JSON object with exactly this structure:
 
 {
   "payer_name": {"value": "Vanguard", "confidence": 0.95},
+  "payer_tin": {"value": "12-3456789", "confidence": 0.90},
   "ordinary_dividends": {"value": 1250.00, "confidence": 0.99},
   "qualified_dividends": {"value": 1100.00, "confidence": 0.99},
   "total_capital_gain": {"value": 0.0, "confidence": 0.99},
@@ -52,6 +53,7 @@ Return a JSON object with exactly this structure:
 Rules:
 - Numeric fields must be numbers, not strings
 - If a field is absent, use {"value": null, "confidence": 0.0}
+- "payer_tin" is the institution's EIN in the PAYER'S TIN box (format XX-XXXXXXX, e.g. 12-3456789)
 - Return ONLY the JSON object, no markdown fences or other text
 """
 

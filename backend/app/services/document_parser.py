@@ -1,4 +1,7 @@
+import asyncio
 import json
+import logging
+import random
 import base64
 from pathlib import Path
 from typing import Any
@@ -9,6 +12,39 @@ from app.models.document import Document
 from app.models.extracted_data import ExtractedData
 from app.services.llm_factory import get_llm
 from app.prompts.w2_extraction import W2_EXTRACTION_PROMPT
+
+logger = logging.getLogger(__name__)
+
+_MAX_RETRIES = 3
+_BASE_DELAY = 1.0       # seconds between retry attempts
+_IMAGE_INTERVAL = 3.0   # minimum seconds between image LLM requests
+
+_last_image_call_at: float = 0.0
+
+
+async def _invoke_with_backoff(llm: Any, messages: list) -> Any:
+    """Call llm.ainvoke with a minimum inter-request interval and exponential backoff."""
+    global _last_image_call_at
+    now = asyncio.get_event_loop().time()
+    wait = _IMAGE_INTERVAL - (now - _last_image_call_at)
+    if wait > 0:
+        logger.debug("Image request throttle: sleeping %.1fs", wait)
+        await asyncio.sleep(wait)
+    _last_image_call_at = asyncio.get_event_loop().time()
+
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return await llm.ainvoke(messages)
+        except Exception as exc:
+            if attempt == _MAX_RETRIES:
+                raise
+            exc_str = str(exc).lower()
+            retryable = any(tok in exc_str for tok in ("429", "rate limit", "529", "overloaded", "503", "500", "timeout"))
+            if not retryable:
+                raise
+            delay = _BASE_DELAY * (2 ** attempt) + random.uniform(0, 1)
+            logger.warning("LLM call failed (attempt %d/%d): %s — retrying in %.1fs", attempt + 1, _MAX_RETRIES, exc, delay)
+            await asyncio.sleep(delay)
 from app.prompts.form1099_extraction import (
     FORM_1099_NEC_PROMPT,
     FORM_1099_INT_PROMPT,
@@ -103,6 +139,20 @@ def _image_message(prompt: str, images: list[tuple[str, str]]) -> HumanMessage:
     return HumanMessage(content=content)
 
 
+def _extract_text(content: str | list) -> str:
+    """Extract plain text from an LLM response content that may be a string or a list of blocks.
+
+    Thinking models (e.g. Gemini 2.5) return content as a list such as:
+      [{"type": "thinking", "thinking": "..."}, {"type": "text", "text": "..."}]
+    """
+    if isinstance(content, list):
+        return next(
+            (block.get("text", "") for block in content if block.get("type") == "text"),
+            "",
+        )
+    return content
+
+
 def _strip_fences(text: str) -> str:
     """Remove markdown code fences if the LLM wraps JSON in them."""
     text = text.strip()
@@ -136,8 +186,8 @@ def _parse_raw_fields(raw_data: dict) -> tuple[dict[str, Any], dict[str, float],
 # ── LLM calls ─────────────────────────────────────────────────────────────
 
 async def _detect_form_type(llm: Any, images: list[tuple[str, str]]) -> str:
-    response = await llm.ainvoke([_image_message(FORM_DETECTION_PROMPT, images)])
-    return response.content.strip().lower()
+    response = await _invoke_with_backoff(llm, [_image_message(FORM_DETECTION_PROMPT, images)])
+    return _extract_text(response.content).strip().lower()
 
 
 async def _detect_subforms_and_pages(
@@ -151,9 +201,9 @@ async def _detect_subforms_and_pages(
     """
     total_pages = len(images)
     prompt = CONSOLIDATED_SUBFORMS_AND_PAGES_PROMPT.format(total_pages=total_pages)
-    response = await llm.ainvoke([_image_message(prompt, images)])
+    response = await _invoke_with_backoff(llm, [_image_message(prompt, images)])
     try:
-        mapping: dict[str, list[int]] = json.loads(_strip_fences(response.content))
+        mapping: dict[str, list[int]] = json.loads(_strip_fences(_extract_text(response.content)))
     except (json.JSONDecodeError, ValueError):
         mapping = {}
 
@@ -176,8 +226,8 @@ async def _extract_fields(
     if consolidated:
         form_name = form_type.upper()
         prompt = CONSOLIDATED_EXTRACTION_PREFIX.format(form_name=form_name) + prompt
-    response = await llm.ainvoke([_image_message(prompt, images)])
-    return json.loads(_strip_fences(response.content))
+    response = await _invoke_with_backoff(llm, [_image_message(prompt, images)])
+    return json.loads(_strip_fences(_extract_text(response.content)))
 
 
 # ── Main entry point ──────────────────────────────────────────────────────
@@ -224,8 +274,12 @@ async def parse_document(doc: Document, db: AsyncSession) -> list[ExtractedData]
             subform_images = {sf: images for sf in ["1099-div", "1099-int", "1099-b"]}
 
         for sf, sf_pages in subform_images.items():
-            raw_data = await _extract_fields(llm, sf_pages, sf, consolidated=True)
-            clean_data, field_confs, overall = _parse_raw_fields(raw_data)
+            try:
+                raw_data = await _extract_fields(llm, sf_pages, sf, consolidated=True)
+                clean_data, field_confs, overall = _parse_raw_fields(raw_data)
+            except Exception as exc:
+                logger.warning("Skipping sub-form %s after extraction error: %s", sf, exc)
+                continue
             row = ExtractedData(
                 document_id=doc.id,
                 form_type=sf,
@@ -234,6 +288,10 @@ async def parse_document(doc: Document, db: AsyncSession) -> list[ExtractedData]
                 field_confidences=json.dumps(field_confs),
             )
             db.add(row)
+            # Commit immediately so the frontend can display this sub-form
+            # while remaining sub-forms are still being extracted.
+            await db.commit()
+            await db.refresh(row)
             results.append(row)
     else:
         # Transaction-heavy forms need all pages; others only need the first

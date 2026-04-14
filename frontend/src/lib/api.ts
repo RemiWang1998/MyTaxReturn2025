@@ -51,8 +51,8 @@ export const documents = {
 export const extraction = {
   run: (docId: string) => request<{ job_id: string }>(`/api/extraction/${docId}/run`, { method: "POST" }),
   results: (docId: string) => request<ExtractionResult[]>(`/api/extraction/${docId}/result`),
-  update: (resultId: string, data: Record<string, unknown>) =>
-    request<ExtractionResult>(`/api/extraction/results/${resultId}`, { method: "PUT", body: JSON.stringify(data) }),
+  update: (resultId: string, data: Record<string, unknown>, fieldConfidences: Record<string, number>) =>
+    request<ExtractionResult>(`/api/extraction/results/${resultId}`, { method: "PUT", body: JSON.stringify({ data, field_confidences: fieldConfidences }) }),
   deleteResult: (resultId: string) =>
     request<void>(`/api/extraction/results/${resultId}`, { method: "DELETE" }),
 };

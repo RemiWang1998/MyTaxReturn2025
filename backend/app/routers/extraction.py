@@ -141,12 +141,24 @@ async def update_extraction_result(
     if not extracted:
         raise HTTPException(status_code=404, detail="Extraction result not found")
 
-    extracted.data_json = json.dumps(payload)
+    # Payload may be { data: {...}, field_confidences: {...} } or a flat data dict (legacy).
+    if "data" in payload and isinstance(payload["data"], dict):
+        data: dict = payload["data"]
+        incoming_confs: dict | None = payload.get("field_confidences")
+    else:
+        data = payload
+        incoming_confs = None
+
+    extracted.data_json = json.dumps(data)
     extracted.user_verified = True
 
-    # Recompute confidence: drop scores for removed fields, recalculate average
+    # Recompute confidence: use caller-supplied confidences when provided,
+    # otherwise fall back to stored values (dropping removed fields).
     old_confs: dict = json.loads(extracted.field_confidences) if extracted.field_confidences else {}
-    new_confs = {k: v for k, v in old_confs.items() if k in payload}
+    if incoming_confs is not None:
+        new_confs = {k: float(v) for k, v in incoming_confs.items() if k in data}
+    else:
+        new_confs = {k: v for k, v in old_confs.items() if k in data}
     extracted.field_confidences = json.dumps(new_confs)
     extracted.confidence = (sum(new_confs.values()) / len(new_confs)) if new_confs else 0.0
 
