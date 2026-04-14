@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 import zipfile
 from pathlib import Path
@@ -24,16 +25,29 @@ def _file_type(filename: str) -> str:
     )
 
 
-async def _save_upload(file: UploadFile, dest: Path) -> None:
+async def _save_upload(file: UploadFile, dest: Path) -> str:
+    """Save upload to dest, return SHA-256 hex digest."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     size = 0
+    h = hashlib.sha256()
     with dest.open("wb") as f:
         while chunk := await file.read(65536):
             size += len(chunk)
             if size > _MAX_FILE_BYTES:
                 dest.unlink(missing_ok=True)
                 raise HTTPException(status_code=413, detail="File exceeds 50 MB limit")
+            h.update(chunk)
             f.write(chunk)
+    return h.hexdigest()
+
+
+def _hash_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+async def _check_duplicate(db: AsyncSession, content_hash: str) -> Document | None:
+    result = await db.execute(select(Document).where(Document.content_hash == content_hash))
+    return result.scalars().first()
 
 
 def _unique_path(base: Path) -> Path:
@@ -65,11 +79,16 @@ async def _handle_zip(zip_path: Path, upload_dir: Path, db: AsyncSession) -> lis
             if name.startswith(".") or Path(info.filename).suffix.lower() not in _ALLOWED_EXTENSIONS:
                 continue
 
-            dest = _unique_path(extract_dir / name)
-            with zf.open(info) as src, dest.open("wb") as dst:
-                shutil.copyfileobj(src, dst)
+            file_bytes = zf.read(info.filename)
+            content_hash = _hash_bytes(file_bytes)
+            existing = await _check_duplicate(db, content_hash)
+            if existing:
+                continue  # Skip duplicate silently inside ZIPs
 
-            doc = Document(filename=name, file_path=str(dest), file_type=_file_type(name), status="uploaded")
+            dest = _unique_path(extract_dir / name)
+            dest.write_bytes(file_bytes)
+
+            doc = Document(filename=name, file_path=str(dest), file_type=_file_type(name), status="uploaded", content_hash=content_hash)
             db.add(doc)
             await db.flush()
             docs.append(doc)
@@ -103,8 +122,15 @@ async def upload_documents(
 
         elif ext in _ALLOWED_EXTENSIONS:
             dest = _unique_path(upload_dir / filename)
-            await _save_upload(file, dest)
-            doc = Document(filename=filename, file_path=str(dest), file_type=_file_type(filename), status="uploaded")
+            content_hash = await _save_upload(file, dest)
+            existing = await _check_duplicate(db, content_hash)
+            if existing:
+                dest.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Duplicate file: '{existing.filename}' (id={existing.id}) was already uploaded.",
+                )
+            doc = Document(filename=filename, file_path=str(dest), file_type=_file_type(filename), status="uploaded", content_hash=content_hash)
             db.add(doc)
             await db.flush()
             created.append(doc)

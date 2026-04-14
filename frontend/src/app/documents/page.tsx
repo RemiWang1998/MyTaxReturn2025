@@ -51,6 +51,7 @@ export default function DocumentsPage() {
   // splitters
   const [listWidth, setListWidth] = useState(272)   // left column (doc list)
   const [viewerWidth, setViewerWidth] = useState(480) // right column (source viewer)
+  const [viewerVisible, setViewerVisible] = useState(true)
   const listSplitter = useRef<{ startX: number; startWidth: number } | null>(null)
   const viewerSplitter = useRef<{ startX: number; startWidth: number } | null>(null)
 
@@ -319,8 +320,8 @@ export default function DocumentsPage() {
 
   return (
     <div className="flex min-h-0">
-      {/* ── Left: document list ── */}
-      <div className="shrink-0 space-y-4 pr-4" style={{ width: listWidth }}>
+      {/* ── Left: document list (hidden on narrow when a doc is selected) ── */}
+      <div className={`shrink-0 space-y-4 pr-4 ${selectedDoc ? 'hidden xl:block' : 'block'}`} style={{ width: selectedDoc ? listWidth : undefined }}>
         <div>
           <h1 className="text-xl font-semibold">{t('heading')}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
@@ -461,7 +462,7 @@ export default function DocumentsPage() {
 
       {/* ── List / review splitter ── */}
       <div
-        className="flex items-center justify-center w-4 shrink-0 self-stretch cursor-col-resize group"
+        className={`items-center justify-center w-4 shrink-0 self-stretch cursor-col-resize group ${selectedDoc ? 'hidden xl:flex' : 'hidden'}`}
         onMouseDown={(e) => { listSplitter.current = { startX: e.clientX, startWidth: listWidth }; e.preventDefault() }}
       >
         <div className="w-px h-full bg-border group-hover:bg-primary/40 transition-colors" />
@@ -469,8 +470,14 @@ export default function DocumentsPage() {
 
       {/* ── Right: review panel ── */}
       {selectedDoc && (
-        <div className="flex-1 min-w-0 pl-2 space-y-4">
-          <div>
+        <div className="flex-1 min-w-0 xl:pl-2 space-y-4">
+          <div className="flex items-center gap-3">
+            <button
+              className="xl:hidden text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setSelected(null)}
+            >
+              ← Back
+            </button>
             <h2 className="text-lg font-semibold truncate">{selectedDoc.filename}</h2>
           </div>
 
@@ -478,6 +485,14 @@ export default function DocumentsPage() {
           <div className="flex flex-col xl:flex-row xl:items-start">
             {/* Review data */}
             <div className="flex-1 min-w-0 space-y-4">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setViewerVisible((v) => !v)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {viewerVisible ? 'Hide source doc' : 'Show source doc'}
+                </button>
+              </div>
               {selectedDoc.status === 'uploaded' || (selectedDoc.status === 'error' && docResults.length === 0) ? (
                 <p className="text-sm text-muted-foreground">{t('notExtracted')}</p>
               ) : docResults.length === 0 ? (
@@ -590,43 +605,46 @@ export default function DocumentsPage() {
               }
             </div>
 
+
             {/* Splitter — only visible in side-by-side layout */}
-            <div
-              className="hidden xl:flex items-center justify-center w-4 shrink-0 self-stretch cursor-col-resize group"
-              onMouseDown={(e) => {
-                viewerSplitter.current = { startX: e.clientX, startWidth: viewerWidth }
-                e.preventDefault()
-              }}
-            >
-              <div className="w-px h-full bg-border group-hover:bg-primary/40 transition-colors" />
-            </div>
+            {viewerVisible && (
+              <div
+                className="hidden xl:flex items-center justify-center w-4 shrink-0 self-stretch cursor-col-resize group"
+                onMouseDown={(e) => {
+                  viewerSplitter.current = { startX: e.clientX, startWidth: viewerWidth }
+                  e.preventDefault()
+                }}
+              >
+                <div className="w-px h-full bg-border group-hover:bg-primary/40 transition-colors" />
+              </div>
+            )}
 
             {/* Source document viewer */}
-            <div className="shrink-0 mt-4 xl:mt-0 space-y-2" style={{ ['--viewer-w' as string]: `${viewerWidth}px` }}>
-              <h3 className="hidden xl:block text-sm font-medium text-muted-foreground">Source Document</h3>
-              <div
-                className="border border-border rounded-lg overflow-hidden w-full xl:[width:var(--viewer-w)]"
-              >
-              <div className="px-3 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground truncate">
-                {selectedDoc.filename}
+            {viewerVisible && (
+              <div className="shrink-0 mt-4 xl:mt-0 space-y-2" style={{ ['--viewer-w' as string]: `${viewerWidth}px` }}>
+                <h3 className="hidden xl:block text-sm font-medium text-muted-foreground">Source Document</h3>
+                <div className="border border-border rounded-lg overflow-hidden w-full xl:[width:var(--viewer-w)]">
+                  <div className="px-3 py-2 border-b border-border bg-muted/40 text-xs font-medium text-muted-foreground truncate">
+                    {selectedDoc.filename}
+                  </div>
+                  {selectedDoc.file_type === 'pdf' ? (
+                    <iframe
+                      key={selectedDoc.id}
+                      src={documents.previewUrl(selectedDoc.id)}
+                      className="w-full h-[800px]"
+                      title={selectedDoc.filename}
+                    />
+                  ) : (
+                    <img
+                      key={selectedDoc.id}
+                      src={documents.previewUrl(selectedDoc.id)}
+                      alt={selectedDoc.filename}
+                      className="w-full object-contain"
+                    />
+                  )}
+                </div>
               </div>
-              {selectedDoc.file_type === 'pdf' ? (
-                <iframe
-                  key={selectedDoc.id}
-                  src={documents.previewUrl(selectedDoc.id)}
-                  className="w-full h-[800px]"
-                  title={selectedDoc.filename}
-                />
-              ) : (
-                <img
-                  key={selectedDoc.id}
-                  src={documents.previewUrl(selectedDoc.id)}
-                  alt={selectedDoc.filename}
-                  className="w-full object-contain"
-                />
-              )}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}

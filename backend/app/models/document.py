@@ -14,4 +14,5 @@ class Document(Base):
     doc_type: Mapped[str | None] = mapped_column(String(64), nullable=True)  # w2, 1099-nec, etc.
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="uploaded")
     error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

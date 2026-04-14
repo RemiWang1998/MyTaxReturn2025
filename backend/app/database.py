@@ -12,8 +12,19 @@ class Base(DeclarativeBase):
 
 async def init_db() -> None:
     from app.models import api_key, document, extracted_data, tax_return, filing_session  # noqa: F401
+    from sqlalchemy import text
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # Add columns introduced after initial schema — safe to retry, SQLite raises on duplicates
+    _migrations = [
+        "ALTER TABLE documents ADD COLUMN content_hash TEXT",
+    ]
+    for stmt in _migrations:
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(stmt))
+        except Exception:
+            pass  # Column already exists
 
 
 async def get_db():

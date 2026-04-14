@@ -6,8 +6,9 @@ logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
+from app.models.extracted_data import ExtractedData
 from app.models.tax_return import TaxReturn
-from app.services.tax_aggregator import aggregate_tax_data
+from app.services.tax_aggregator import aggregate_tax_data, _val
 from app.services import mcp_client
 from app.schemas.tax_return import (
     TaxReturnResponse,
@@ -194,3 +195,142 @@ async def check_credits(req: CheckCreditsRequest, db: AsyncSession = Depends(get
         raise HTTPException(status_code=502, detail=f"MCP error: {exc}")
 
     return result
+
+
+def _str_val(field) -> str | None:
+    if field is None:
+        return None
+    if isinstance(field, dict):
+        v = field.get("value")
+    else:
+        v = field
+    return str(v).strip() if v else None
+
+
+@router.get("/forms")
+async def get_forms(db: AsyncSession = Depends(get_db)):
+    """Return per-form detail for the filing guide: each W-2, 1099, etc. with payer/employer info."""
+    result = await db.execute(select(ExtractedData))
+    rows = result.scalars().all()
+
+    w2s, int1099, div1099, nec1099, misc1099, b1099, r1099, g1099, da1099, s1099 = ([] for _ in range(10))
+
+    for row in rows:
+        data = json.loads(row.data_json)
+        ft = row.form_type.upper()
+
+        if ft == "W2":
+            w2s.append({
+                "employer": _str_val(data.get("employer_name")),
+                "employer_ein": _str_val(data.get("employer_ein")),
+                "wages": _val(data.get("wages_tips")),
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+                "social_security_wages": _val(data.get("social_security_wages")),
+                "social_security_withheld": _val(data.get("social_security_tax_withheld")),
+                "medicare_wages": _val(data.get("medicare_wages")),
+                "medicare_withheld": _val(data.get("medicare_tax_withheld")),
+                "state": _str_val(data.get("state")),
+                "state_wages": _val(data.get("state_wages")),
+                "state_withheld": _val(data.get("state_tax_withheld")),
+            })
+
+        elif ft == "1099-INT":
+            int1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "interest": _val(data.get("interest_income")),
+                "early_withdrawal_penalty": _val(data.get("early_withdrawal_penalty")),
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+                "us_bond_interest": _val(data.get("us_savings_bond_interest")),
+            })
+
+        elif ft == "1099-DIV":
+            div1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "ordinary_dividends": _val(data.get("ordinary_dividends")),
+                "qualified_dividends": _val(data.get("qualified_dividends")),
+                "total_capital_gain": _val(data.get("total_capital_gain")),
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+                "exempt_interest_dividends": _val(data.get("exempt_interest_dividends")),
+            })
+
+        elif ft == "1099-NEC":
+            nec1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "amount": _val(data.get("nonemployee_compensation")),
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+            })
+
+        elif ft == "1099-MISC":
+            misc1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "rents": _val(data.get("rents")),
+                "royalties": _val(data.get("royalties")),
+                "other_income": _val(data.get("other_income")),
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+            })
+
+        elif ft == "1099-B":
+            proceeds = _val(data.get("total_proceeds"))
+            cost = _val(data.get("total_cost_basis"))
+            gain_loss = _val(data.get("total_gain_loss")) if data.get("total_gain_loss") is not None else (proceeds - cost)
+            txns = data.get("transactions", {})
+            txn_list = txns.get("value", []) if isinstance(txns, dict) else txns or []
+            b1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "proceeds": proceeds,
+                "cost_basis": cost,
+                "gain_loss": gain_loss,
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+                "transaction_count": len(txn_list),
+            })
+
+        elif ft == "1099-R":
+            r1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "gross_distribution": _val(data.get("gross_distribution")),
+                "taxable_amount": _val(data.get("taxable_amount")),
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+                "distribution_code": _str_val(data.get("distribution_code")),
+            })
+
+        elif ft == "1099-G":
+            g1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "unemployment_compensation": _val(data.get("unemployment_compensation")),
+                "state_local_refund": _val(data.get("state_local_tax_refund")),
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+            })
+
+        elif ft == "1099-DA":
+            txns = data.get("transactions", {})
+            txn_list = txns.get("value", []) if isinstance(txns, dict) else txns or []
+            gain_loss = _val(data.get("total_gain_loss")) if data.get("total_gain_loss") is not None else sum(
+                float(t.get("gain_or_loss") or 0) for t in txn_list if isinstance(t, dict)
+            )
+            da1099.append({
+                "payer": _str_val(data.get("payer_name")),
+                "gain_loss": gain_loss,
+                "federal_withheld": _val(data.get("federal_tax_withheld")),
+                "transaction_count": len(txn_list),
+            })
+
+        elif ft == "1099-S":
+            s1099.append({
+                "payer": _str_val(data.get("transferor_name") or data.get("payer_name")),
+                "proceeds": _val(data.get("gross_proceeds") or data.get("total_proceeds")),
+                "cost_basis": _val(data.get("total_cost_basis")),
+                "gain_loss": _val(data.get("total_gain_loss")),
+            })
+
+    return {
+        "w2": w2s,
+        "1099_int": int1099,
+        "1099_div": div1099,
+        "1099_nec": nec1099,
+        "1099_misc": misc1099,
+        "1099_b": b1099,
+        "1099_r": r1099,
+        "1099_g": g1099,
+        "1099_da": da1099,
+        "1099_s": s1099,
+    }

@@ -75,6 +75,7 @@ export const taxReturn = {
     ).then((r) => ({ ...r.federal, federal_tax_withheld: r.federal_tax_withheld, refund: r.refund, states: r.states, total_income: r.total_income, wages: r.wages, capital_gains: r.capital_gains })),
   compareStatus: () => request<StatusComparison>("/api/return/compare-status", { method: "POST" }),
   checkCredits: () => request<CreditsResult>("/api/return/check-credits", { method: "POST" }),
+  forms: () => request<FormsDetail>("/api/return/forms"),
 };
 
 // --- Filing endpoints ---
@@ -153,6 +154,28 @@ export interface StatusComparison {
 export interface CreditsResult {
   eligible: { name: string; amount: number }[];
   total: number;
+}
+
+export interface W2Form {
+  employer: string | null; employer_ein: string | null
+  wages: number; federal_withheld: number
+  social_security_wages: number; social_security_withheld: number
+  medicare_wages: number; medicare_withheld: number
+  state: string | null; state_wages: number; state_withheld: number
+}
+export interface Int1099 { payer: string | null; interest: number; early_withdrawal_penalty: number; federal_withheld: number; us_bond_interest: number }
+export interface Div1099 { payer: string | null; ordinary_dividends: number; qualified_dividends: number; total_capital_gain: number; federal_withheld: number; exempt_interest_dividends: number }
+export interface Nec1099 { payer: string | null; amount: number; federal_withheld: number }
+export interface Misc1099 { payer: string | null; rents: number; royalties: number; other_income: number; federal_withheld: number }
+export interface B1099 { payer: string | null; proceeds: number; cost_basis: number; gain_loss: number; federal_withheld: number; transaction_count: number }
+export interface R1099 { payer: string | null; gross_distribution: number; taxable_amount: number; federal_withheld: number; distribution_code: string | null }
+export interface G1099 { payer: string | null; unemployment_compensation: number; state_local_refund: number; federal_withheld: number }
+export interface Da1099 { payer: string | null; gain_loss: number; federal_withheld: number; transaction_count: number }
+export interface S1099 { payer: string | null; proceeds: number; cost_basis: number; gain_loss: number }
+export interface FormsDetail {
+  w2: W2Form[]; '1099_int': Int1099[]; '1099_div': Div1099[]
+  '1099_nec': Nec1099[]; '1099_misc': Misc1099[]; '1099_b': B1099[]
+  '1099_r': R1099[]; '1099_g': G1099[]; '1099_da': Da1099[]; '1099_s': S1099[]
 }
 
 export interface FilingSession {
