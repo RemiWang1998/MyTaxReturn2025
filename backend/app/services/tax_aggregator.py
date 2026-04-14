@@ -1,8 +1,11 @@
 import json
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.extracted_data import ExtractedData
 from app.models.tax_return import TaxReturn
+
+logger = logging.getLogger(__name__)
 
 
 def _val(field: dict | None) -> float:
@@ -22,6 +25,7 @@ async def aggregate_tax_data(db: AsyncSession) -> TaxReturn:
     """Aggregate all verified/extracted data into a single TaxReturn row."""
     result = await db.execute(select(ExtractedData))
     all_extracted = result.scalars().all()
+    logger.info("Aggregating %d extracted rows", len(all_extracted))
 
     wages = 0.0
     federal_withheld = 0.0
@@ -69,7 +73,9 @@ async def aggregate_tax_data(db: AsyncSession) -> TaxReturn:
             federal_withheld += _val(data.get("federal_tax_withheld"))
 
         elif ft in ("1099-B", "1099-S"):
-            capital_gains += _val(data.get("proceeds")) - _val(data.get("cost_basis"))
+            gain = _val(data.get("proceeds")) - _val(data.get("cost_basis"))
+            logger.debug("  %s: proceeds=%.2f cost_basis=%.2f gain=%.2f", ft, _val(data.get("proceeds")), _val(data.get("cost_basis")), gain)
+            capital_gains += gain
 
         elif ft == "1099-R":
             other_income += _val(data.get("gross_distribution"))
@@ -80,6 +86,12 @@ async def aggregate_tax_data(db: AsyncSession) -> TaxReturn:
             federal_withheld += _val(data.get("federal_tax_withheld"))
 
     total_income = wages + interest_income + ordinary_dividends + nonemployee_comp + capital_gains + other_income
+    logger.info(
+        "Aggregation result: wages=%.2f interest=%.2f dividends=%.2f nec=%.2f "
+        "cap_gains=%.2f other=%.2f total=%.2f fed_withheld=%.2f",
+        wages, interest_income, ordinary_dividends, nonemployee_comp,
+        capital_gains, other_income, total_income, federal_withheld,
+    )
 
     aggregated = {
         "wages": wages,

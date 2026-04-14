@@ -1,8 +1,11 @@
+import logging
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.api_key import ApiKey
 from app.security import decrypt
+
+logger = logging.getLogger(__name__)
 
 
 async def get_llm(db: AsyncSession, provider: str | None = None) -> Any:
@@ -20,6 +23,7 @@ async def get_llm(db: AsyncSession, provider: str | None = None) -> Any:
 
     api_key = decrypt(key_row.encrypted_key)
     model_name = key_row.model_name
+    logger.debug("LLM provider=%s model=%s", key_row.provider, model_name)
 
     if key_row.provider == "anthropic":
         from langchain_anthropic import ChatAnthropic

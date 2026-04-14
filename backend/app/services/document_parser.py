@@ -45,11 +45,12 @@ Return ONLY one of these exact strings (no other text):
   other
 """
 
-CONSOLIDATED_SUBFORMS_PROMPT = """\
-This is a consolidated 1099 tax statement. Look through all pages and identify which \
-1099 sub-forms are present.
+CONSOLIDATED_SUBFORMS_AND_PAGES_PROMPT = """\
+This is a consolidated 1099 tax statement. The images provided are pages 1 through {total_pages} \
+(in order). Identify which 1099 sub-forms are present and which page numbers (1-indexed) contain \
+data for each sub-form. A sub-form may span multiple pages.
 
-Return a JSON array containing ONLY the form types found. Use these exact strings:
+Only use these exact form type strings:
   "1099-div"
   "1099-int"
   "1099-misc"
@@ -58,8 +59,15 @@ Return a JSON array containing ONLY the form types found. Use these exact string
   "1099-da"
   "1099-g"
 
-Example: ["1099-div", "1099-int", "1099-b"]
-Return ONLY the JSON array, no other text.
+Return a JSON object mapping each found form type to a list of 1-indexed page numbers.
+Example: {{"1099-div": [1, 2], "1099-int": [3], "1099-b": [4, 5, 6]}}
+
+Rules:
+- Only include form types that are actually present in the document.
+- Only include page numbers that actually contain data for that form.
+- If a page contains data for multiple forms, include it in each relevant form's list.
+
+Return ONLY the JSON object, no other text.
 """
 
 CONSOLIDATED_EXTRACTION_PREFIX = """\
@@ -132,10 +140,30 @@ async def _detect_form_type(llm: Any, images: list[tuple[str, str]]) -> str:
     return response.content.strip().lower()
 
 
-async def _detect_subforms(llm: Any, images: list[tuple[str, str]]) -> list[str]:
-    response = await llm.ainvoke([_image_message(CONSOLIDATED_SUBFORMS_PROMPT, images)])
-    result = json.loads(_strip_fences(response.content))
-    return [f for f in result if f in PROMPT_MAP]
+async def _detect_subforms_and_pages(
+    llm: Any,
+    images: list[tuple[str, str]],
+) -> dict[str, list[tuple[str, str]]]:
+    """Single LLM call: detect sub-forms present and map each to its relevant pages.
+
+    Returns a dict of subform → sliced image list.
+    Falls back to all pages for any sub-form with empty/invalid page numbers.
+    """
+    total_pages = len(images)
+    prompt = CONSOLIDATED_SUBFORMS_AND_PAGES_PROMPT.format(total_pages=total_pages)
+    response = await llm.ainvoke([_image_message(prompt, images)])
+    try:
+        mapping: dict[str, list[int]] = json.loads(_strip_fences(response.content))
+    except (json.JSONDecodeError, ValueError):
+        mapping = {}
+
+    result: dict[str, list[tuple[str, str]]] = {}
+    for sf, page_nums in mapping.items():
+        if sf not in PROMPT_MAP:
+            continue
+        valid = [p for p in page_nums if isinstance(p, int) and 1 <= p <= total_pages]
+        result[sf] = [images[p - 1] for p in valid] if valid else images
+    return result
 
 
 async def _extract_fields(
@@ -189,14 +217,14 @@ async def parse_document(doc: Document, db: AsyncSession) -> list[ExtractedData]
     results: list[ExtractedData] = []
 
     if form_type == "1099-consolidated":
-        # Detect which sub-forms are present (send all pages)
-        subforms = await _detect_subforms(llm, images)
-        if not subforms:
-            # LLM couldn't identify sub-forms — fall back to common ones
-            subforms = ["1099-div", "1099-int", "1099-b"]
+        # Single call: detect sub-forms and map each to its relevant pages
+        subform_images = await _detect_subforms_and_pages(llm, images)
+        if not subform_images:
+            # LLM couldn't identify sub-forms — fall back to common ones with all pages
+            subform_images = {sf: images for sf in ["1099-div", "1099-int", "1099-b"]}
 
-        for sf in subforms:
-            raw_data = await _extract_fields(llm, images, sf, consolidated=True)
+        for sf, sf_pages in subform_images.items():
+            raw_data = await _extract_fields(llm, sf_pages, sf, consolidated=True)
             clean_data, field_confs, overall = _parse_raw_fields(raw_data)
             row = ExtractedData(
                 document_id=doc.id,

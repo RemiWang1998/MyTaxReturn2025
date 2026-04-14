@@ -42,6 +42,7 @@ export default function DocumentsPage() {
   const [results, setResults] = useState<Record<string, ExtractionResult[]>>({})
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({})
   const [saving, setSaving] = useState<Record<string, boolean>>({})
+  const [deletedFields, setDeletedFields] = useState<Record<string, Set<string>>>({})
   const [subIdx, setSubIdx] = useState(0)
 
   // splitters
@@ -106,6 +107,17 @@ export default function DocumentsPage() {
     })
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    setConfidences((prev) => {
+      const next = { ...prev }
+      for (const [docId, arr] of Object.entries(results)) {
+        if (arr.length === 0) delete next[docId]
+        else next[docId] = Math.min(...arr.map((r) => r.confidence))
+      }
+      return next
+    })
+  }, [results])
 
   async function handleFiles(files: File[]) {
     const valid = files.filter((f) => {
@@ -194,10 +206,43 @@ export default function DocumentsPage() {
     setEdits((e) => ({ ...e, [resultId]: { ...e[resultId], [field]: value } }))
   }
 
+  function handleDeleteField(resultId: string, field: string) {
+    setDeletedFields((d) => {
+      const prev = d[resultId] ?? new Set<string>()
+      return { ...d, [resultId]: new Set([...prev, field]) }
+    })
+    // Remove any pending edit for this field
+    setEdits((e) => {
+      if (!e[resultId]) return e
+      const copy = { ...e[resultId] }
+      delete copy[field]
+      return { ...e, [resultId]: copy }
+    })
+  }
+
+  async function handleDeleteSubform(result: ExtractionResult) {
+    const docId = String(result.document_id)
+    const rid = String(result.id)
+    try {
+      await extraction.deleteResult(rid)
+      setResults((prev) => {
+        const updated = (prev[docId] ?? []).filter((r) => String(r.id) !== rid)
+        return { ...prev, [docId]: updated }
+      })
+      setSubIdx(0)
+      setEdits((e) => { const n = { ...e }; delete n[rid]; return n })
+      setDeletedFields((d) => { const n = { ...d }; delete n[rid]; return n })
+    } catch (err) { alert(String(err)) }
+  }
+
   async function handleSave(result: ExtractionResult) {
     const rid = String(result.id)
     setSaving((s) => ({ ...s, [rid]: true }))
-    const merged = { ...result.data, ...(edits[rid] ?? {}) }
+    const deleted = deletedFields[rid] ?? new Set<string>()
+    const merged = Object.fromEntries(
+      Object.entries({ ...result.data, ...(edits[rid] ?? {}) })
+        .filter(([field]) => !deleted.has(field))
+    )
     try {
       const updated = await extraction.update(rid, merged)
       setResults((prev) => {
@@ -205,6 +250,7 @@ export default function DocumentsPage() {
         return { ...prev, [String(result.document_id)]: docResults.map((r) => r.id === result.id ? updated : r) }
       })
       setEdits((e) => ({ ...e, [rid]: {} }))
+      setDeletedFields((d) => { const n = { ...d }; delete n[rid]; return n })
     } catch (err) { alert(String(err)) }
     finally { setSaving((s) => ({ ...s, [rid]: false })) }
   }
@@ -219,7 +265,17 @@ export default function DocumentsPage() {
   const result = docResults[subIdx] ?? null
   const rid = result ? String(result.id) : ''
   const resultEdits = rid ? (edits[rid] ?? {}) : {}
-  const hasEdits = Object.keys(resultEdits).length > 0
+  const resultDeleted = rid ? (deletedFields[rid] ?? new Set<string>()) : new Set<string>()
+  const hasEdits = Object.keys(resultEdits).length > 0 || resultDeleted.size > 0
+
+  // Live confidence: average of field confidences for non-deleted fields
+  const displayedConfidence = (() => {
+    if (!result) return 0
+    const confs = Object.entries(result.field_confidences)
+      .filter(([field]) => !resultDeleted.has(field))
+      .map(([, v]) => v)
+    return confs.length > 0 ? confs.reduce((a, b) => a + b, 0) / confs.length : result.confidence
+  })()
 
   return (
     <div className="flex min-h-0">
@@ -377,17 +433,26 @@ export default function DocumentsPage() {
                   {docResults.length > 1 && (
                     <div className="flex gap-1.5 flex-wrap">
                       {docResults.map((r, i) => (
-                        <button
+                        <div
                           key={r.id}
-                          onClick={() => setSubIdx(i)}
-                          className={`px-2.5 py-1 text-xs font-medium rounded border transition-colors uppercase ${
+                          className={`flex items-center gap-1 rounded border transition-colors ${
                             subIdx === i
                               ? 'bg-primary/10 border-primary text-primary'
                               : 'border-border text-muted-foreground hover:bg-accent'
                           }`}
                         >
-                          {r.form_type}
-                        </button>
+                          <button
+                            onClick={() => setSubIdx(i)}
+                            className="px-2.5 py-1 text-xs font-medium uppercase"
+                          >
+                            {r.form_type}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSubform(r)}
+                            title={`Remove ${r.form_type}`}
+                            className="pr-2 text-[10px] text-muted-foreground hover:text-destructive leading-none"
+                          >✕</button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -398,7 +463,7 @@ export default function DocumentsPage() {
                         <div className="flex items-center gap-3 text-sm">
                           <span className="font-medium uppercase">{result.form_type}</span>
                           <span className="text-muted-foreground text-xs">
-                            {tR('avgConfidence', { pct: (result.confidence * 100).toFixed(0) })}
+                            {tR('avgConfidence', { pct: (displayedConfidence * 100).toFixed(0) })}
                           </span>
                           {result.user_verified && (
                             <span className="text-xs text-green-600 font-medium">{tR('verified')}</span>
@@ -412,7 +477,7 @@ export default function DocumentsPage() {
                       {/* Scalar fields in a 2-column grid */}
                       <div className="grid grid-cols-2 gap-2">
                         {Object.entries(result.data)
-                          .filter(([field, value]) => field !== 'recipient_tin' && !Array.isArray(value))
+                          .filter(([field, value]) => field !== 'recipient_tin' && !Array.isArray(value) && !resultDeleted.has(field))
                           .map(([field, value]) => {
                             const conf = result.field_confidences[field] ?? 1
                             const current = resultEdits[field] !== undefined ? resultEdits[field] : String(value ?? '')
@@ -422,9 +487,16 @@ export default function DocumentsPage() {
                                   <label className="text-xs font-medium capitalize text-muted-foreground">
                                     {field.replace(/_/g, ' ')}
                                   </label>
-                                  {conf < 0.8 && (
-                                    <span className="text-[10px] text-muted-foreground">{(conf * 100).toFixed(0)}%</span>
-                                  )}
+                                  <div className="flex items-center gap-1">
+                                    {conf < 0.8 && (
+                                      <span className="text-[10px] text-muted-foreground">{(conf * 100).toFixed(0)}%</span>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteField(rid, field)}
+                                      title="Delete field"
+                                      className="text-[10px] text-muted-foreground hover:text-destructive leading-none"
+                                    >✕</button>
+                                  </div>
                                 </div>
                                 <input
                                   type="text"
@@ -485,12 +557,14 @@ export default function DocumentsPage() {
               </div>
               {selectedDoc.file_type === 'pdf' ? (
                 <iframe
+                  key={selectedDoc.id}
                   src={documents.previewUrl(selectedDoc.id)}
                   className="w-full h-[800px]"
                   title={selectedDoc.filename}
                 />
               ) : (
                 <img
+                  key={selectedDoc.id}
                   src={documents.previewUrl(selectedDoc.id)}
                   alt={selectedDoc.filename}
                   className="w-full object-contain"

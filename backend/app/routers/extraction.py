@@ -1,8 +1,11 @@
 import json
+import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from app.database import get_db, AsyncSessionLocal
 from app.models.document import Document
 from app.models.extracted_data import ExtractedData
@@ -65,12 +68,15 @@ async def _run_extraction(doc_id: int) -> None:
     async with AsyncSessionLocal() as db:
         doc = await db.get(Document, doc_id)
         if not doc:
+            logger.warning("Extraction requested for unknown doc_id=%d", doc_id)
             return
         try:
             await parse_document(doc, db)
         except Exception as exc:
+            friendly = _friendly_error(exc)
+            logger.error("Extraction failed for doc_id=%d: %s | raw: %s", doc_id, friendly, exc)
             doc.status = "error"
-            doc.error_msg = _friendly_error(exc)
+            doc.error_msg = friendly
             await db.commit()
 
 
@@ -90,6 +96,7 @@ async def run_extraction(
     doc.error_msg = None
     await db.commit()
 
+    logger.info("Queued extraction for doc_id=%d", doc_id)
     background_tasks.add_task(_run_extraction, doc_id)
     return {"message": "Extraction started", "doc_id": doc_id}
 
@@ -110,6 +117,19 @@ async def get_extraction_results(doc_id: int, db: AsyncSession = Depends(get_db)
     return [_result_to_dict(r) for r in rows]
 
 
+@router.delete("/results/{result_id}", status_code=204)
+async def delete_extraction_result(
+    result_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a specific extraction result (e.g. remove a sub-form from a consolidated 1099)."""
+    extracted = await db.get(ExtractedData, result_id)
+    if not extracted:
+        raise HTTPException(status_code=404, detail="Extraction result not found")
+    await db.execute(delete(ExtractedData).where(ExtractedData.id == result_id))
+    await db.commit()
+
+
 @router.put("/results/{result_id}")
 async def update_extraction_result(
     result_id: int,
@@ -123,6 +143,13 @@ async def update_extraction_result(
 
     extracted.data_json = json.dumps(payload)
     extracted.user_verified = True
+
+    # Recompute confidence: drop scores for removed fields, recalculate average
+    old_confs: dict = json.loads(extracted.field_confidences) if extracted.field_confidences else {}
+    new_confs = {k: v for k, v in old_confs.items() if k in payload}
+    extracted.field_confidences = json.dumps(new_confs)
+    extracted.confidence = (sum(new_confs.values()) / len(new_confs)) if new_confs else 0.0
+
     await db.commit()
     await db.refresh(extracted)
     return _result_to_dict(extracted)

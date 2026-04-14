@@ -4,9 +4,12 @@ Spawns `npx -y irs-taxpayer-mcp` as a subprocess on each call.
 Each public function opens a fresh session, calls one tool, and closes.
 """
 
+import logging
 from typing import Any
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+logger = logging.getLogger(__name__)
 
 
 _SERVER_PARAMS = StdioServerParameters(
@@ -16,6 +19,7 @@ _SERVER_PARAMS = StdioServerParameters(
 
 
 async def _call_tool(tool_name: str, arguments: dict[str, Any]) -> Any:
+    logger.debug("MCP call: tool=%s args=%s", tool_name, arguments)
     async with stdio_client(_SERVER_PARAMS) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -26,8 +30,11 @@ async def _call_tool(tool_name: str, arguments: dict[str, Any]) -> Any:
                 if hasattr(first, "text"):
                     import json
                     try:
-                        return json.loads(first.text)
+                        parsed = json.loads(first.text)
+                        logger.debug("MCP result: tool=%s -> %s", tool_name, parsed)
+                        return parsed
                     except (json.JSONDecodeError, ValueError):
+                        logger.debug("MCP result (non-JSON): tool=%s -> %s", tool_name, first.text)
                         return first.text
             return result.content
 

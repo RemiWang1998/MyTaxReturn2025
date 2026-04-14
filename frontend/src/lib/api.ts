@@ -53,6 +53,8 @@ export const extraction = {
   results: (docId: string) => request<ExtractionResult[]>(`/api/extraction/${docId}/result`),
   update: (resultId: string, data: Record<string, unknown>) =>
     request<ExtractionResult>(`/api/extraction/results/${resultId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteResult: (resultId: string) =>
+    request<void>(`/api/extraction/results/${resultId}`, { method: "DELETE" }),
 };
 
 // --- Tax return endpoints ---
