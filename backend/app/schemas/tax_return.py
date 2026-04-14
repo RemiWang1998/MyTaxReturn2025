@@ -23,15 +23,15 @@ class TaxReturnUpdate(BaseModel):
 
 class CalculateRequest(BaseModel):
     filing_status: str = Field(default="single", description="single | married_filing_jointly | married_filing_separately | head_of_household | qualifying_surviving_spouse")
-    tax_year: int = Field(default=2024)
+    tax_year: int = Field(default=2025)
     state: str | None = Field(default=None, description="Two-letter state code for state tax estimate")
 
 
 class CompareStatusRequest(BaseModel):
-    tax_year: int = Field(default=2024)
+    tax_year: int = Field(default=2025)
 
 
 class CheckCreditsRequest(BaseModel):
     filing_status: str = Field(default="single")
     dependents: int = Field(default=0, ge=0)
-    tax_year: int = Field(default=2024)
+    tax_year: int = Field(default=2025)

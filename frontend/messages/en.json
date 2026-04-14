@@ -80,6 +80,15 @@
     "heading": "Calculate",
     "subtitle": "Run tax calculations via the IRS taxpayer MCP server.",
     "federalTax": "Federal Tax",
+    "totalIncome": "Total Income",
+    "wages": "Wages",
+    "capitalGains": "Capital Gain / Loss",
+    "withheld": "Withheld",
+    "estimatedRefund": "Estimated Refund",
+    "amountDue": "Amount Due",
+    "stateTax": "State Tax",
+    "stateTaxLabel": "State Tax",
+    "noStateTax": "No state income tax",
     "calculate": "Calculate",
     "calculating": "Calculating…",
     "effectiveRate": "Effective Rate",
@@ -98,6 +107,6 @@
   },
   "filing": {
     "heading": "Filing",
-    "comingSoon": "Browser agent filing will be available in Phase 6. Complete steps 1–4 first."
+    "comingSoon": "Browser agent filing will be available in Phase 5. Complete steps 1–4 first."
   }
 }

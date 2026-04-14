@@ -80,6 +80,15 @@
     "heading": "计算",
     "subtitle": "通过 IRS 纳税人 MCP 服务器运行税务计算。",
     "federalTax": "联邦税",
+    "totalIncome": "总收入",
+    "wages": "工资收入",
+    "capitalGains": "资本利得／损失",
+    "withheld": "已预扣税款",
+    "estimatedRefund": "预计退税",
+    "amountDue": "应补缴税款",
+    "stateTax": "州税",
+    "stateTaxLabel": "州税",
+    "noStateTax": "无州所得税",
     "calculate": "计算",
     "calculating": "计算中…",
     "effectiveRate": "有效税率",
@@ -98,6 +107,6 @@
   },
   "filing": {
     "heading": "申报",
-    "comingSoon": "浏览器代理申报功能将在第 6 阶段推出。请先完成步骤 1–4。"
+    "comingSoon": "浏览器代理申报功能将在第 5 阶段推出。请先完成步骤 1–4。"
   }
 }

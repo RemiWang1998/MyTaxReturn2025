@@ -1,5 +1,8 @@
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -84,34 +87,55 @@ async def update_tax_return(payload: TaxReturnUpdate, db: AsyncSession = Depends
 @router.post("/calculate")
 async def calculate_taxes(req: CalculateRequest, db: AsyncSession = Depends(get_db)):
     """Run MCP federal (and optionally state) tax calculations."""
-    tr = await _get_or_aggregate(db)
+    tr = await aggregate_tax_data(db)
     data = json.loads(tr.data_json) if tr.data_json else {}
     overrides = data.get("overrides", {})
     total_income = float(overrides.get("total_income", data.get("total_income", 0.0)))
     filing_status = tr.filing_status or req.filing_status
 
+    def eff(key: str) -> float:
+        return float(overrides.get(key, data.get(key, 0.0)))
+
     try:
-        federal = await mcp_client.calculate_federal_tax(total_income, filing_status, req.tax_year)
+        federal = await mcp_client.calculate_federal_tax(
+            income=total_income,
+            filing_status=filing_status,
+            tax_year=req.tax_year,
+            w2_income=eff("wages"),
+            self_employment_income=eff("nonemployee_compensation"),
+            capital_gains=eff("capital_gains"),
+        )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"MCP error (federal): {exc}")
 
-    state_result = None
-    if req.state:
-        try:
-            state_income = float(
-                overrides.get("wages", data.get("wages", 0.0))
-                + overrides.get("nonemployee_compensation", data.get("nonemployee_compensation", 0.0))
-            )
-            state_result = await mcp_client.estimate_state_tax(req.state, state_income, filing_status, req.tax_year)
-        except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"MCP error (state): {exc}")
+    # Auto-detect states from W-2 state_wages; fall back to req.state if provided
+    state_wages: dict = data.get("state_wages", {})
+    state_withheld: dict = data.get("state_tax_withheld", {})
+    states_to_calc = list(state_wages.keys()) or ([req.state] if req.state else [])
 
+    state_results: dict[str, dict] = {}
+    for state_code in states_to_calc:
+        try:
+            income_for_state = float(state_wages.get(state_code, eff("wages") + eff("nonemployee_compensation")))
+            result = await mcp_client.estimate_state_tax(state_code, income_for_state, filing_status)
+            withheld_for_state = float(state_withheld.get(state_code, 0.0))
+            result["state_tax_withheld"] = withheld_for_state
+            result["refund"] = withheld_for_state - result.get("state_tax", 0.0)
+            state_results[state_code] = result
+        except Exception as exc:
+            logger.warning("MCP state tax error for %s: %s", state_code, exc)
+
+    federal_withheld = eff("federal_tax_withheld")
     calc_results = {
         "federal": federal,
-        "state": state_result,
+        "states": state_results,
         "filing_status": filing_status,
         "tax_year": req.tax_year,
         "total_income": total_income,
+        "wages": eff("wages"),
+        "capital_gains": eff("capital_gains"),
+        "federal_tax_withheld": federal_withheld,
+        "refund": federal_withheld - federal.get("federal_tax", 0.0),
     }
     tr.calc_results_json = json.dumps(calc_results)
     if filing_status:
@@ -126,13 +150,14 @@ async def calculate_taxes(req: CalculateRequest, db: AsyncSession = Depends(get_
 @router.post("/compare-status")
 async def compare_filing_statuses(req: CompareStatusRequest, db: AsyncSession = Depends(get_db)):
     """Compare all filing statuses via MCP to find the optimal one."""
-    tr = await _get_or_aggregate(db)
+    tr = await aggregate_tax_data(db)
     data = json.loads(tr.data_json) if tr.data_json else {}
     overrides = data.get("overrides", {})
     total_income = float(overrides.get("total_income", data.get("total_income", 0.0)))
 
+    federal_withheld = float(overrides.get("federal_tax_withheld", data.get("federal_tax_withheld", 0.0)))
     try:
-        result = await mcp_client.compare_filing_statuses(total_income, req.tax_year)
+        result = await mcp_client.compare_filing_statuses(total_income, req.tax_year, federal_withheld)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"MCP error: {exc}")
 
@@ -142,7 +167,7 @@ async def compare_filing_statuses(req: CompareStatusRequest, db: AsyncSession = 
 @router.post("/check-credits")
 async def check_credits(req: CheckCreditsRequest, db: AsyncSession = Depends(get_db)):
     """Check credit eligibility via MCP."""
-    tr = await _get_or_aggregate(db)
+    tr = await aggregate_tax_data(db)
     data = json.loads(tr.data_json) if tr.data_json else {}
     overrides = data.get("overrides", {})
     total_income = float(overrides.get("total_income", data.get("total_income", 0.0)))

@@ -80,6 +80,15 @@
     "heading": "計算",
     "subtitle": "透過 IRS 納稅人 MCP 伺服器執行稅務計算。",
     "federalTax": "聯邦稅",
+    "totalIncome": "總收入",
+    "wages": "薪資收入",
+    "capitalGains": "資本利得／損失",
+    "withheld": "已預扣稅款",
+    "estimatedRefund": "預計退稅",
+    "amountDue": "應補繳稅款",
+    "stateTax": "州稅",
+    "stateTaxLabel": "州稅",
+    "noStateTax": "無州所得稅",
     "calculate": "計算",
     "calculating": "計算中…",
     "effectiveRate": "有效稅率",
@@ -98,6 +107,6 @@
   },
   "filing": {
     "heading": "申報",
-    "comingSoon": "瀏覽器代理申報功能將於第 6 階段推出。請先完成步驟 1–4。"
+    "comingSoon": "瀏覽器代理申報功能將於第 5 階段推出。請先完成步驟 1–4。"
   }
 }

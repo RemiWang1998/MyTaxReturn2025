@@ -8,11 +8,14 @@ from app.models.tax_return import TaxReturn
 logger = logging.getLogger(__name__)
 
 
-def _val(field: dict | None) -> float:
-    """Extract numeric value from a FieldWithConfidence dict."""
+def _val(field) -> float:
+    """Extract numeric value from a FieldWithConfidence dict or a raw scalar."""
     if field is None:
         return 0.0
-    v = field.get("value")
+    if isinstance(field, dict):
+        v = field.get("value")
+    else:
+        v = field
     if v is None:
         return 0.0
     try:
@@ -45,7 +48,8 @@ async def aggregate_tax_data(db: AsyncSession) -> TaxReturn:
         if ft == "W2":
             wages += _val(data.get("wages_tips"))
             federal_withheld += _val(data.get("federal_tax_withheld"))
-            state = (data.get("state") or {}).get("value")
+            state_field = data.get("state")
+            state = state_field.get("value") if isinstance(state_field, dict) else state_field
             if state:
                 state_wages[state] = state_wages.get(state, 0.0) + _val(data.get("state_wages"))
                 state_withheld[state] = state_withheld.get(state, 0.0) + _val(data.get("state_tax_withheld"))
@@ -73,8 +77,16 @@ async def aggregate_tax_data(db: AsyncSession) -> TaxReturn:
             federal_withheld += _val(data.get("federal_tax_withheld"))
 
         elif ft in ("1099-B", "1099-S"):
-            gain = _val(data.get("proceeds")) - _val(data.get("cost_basis"))
-            logger.debug("  %s: proceeds=%.2f cost_basis=%.2f gain=%.2f", ft, _val(data.get("proceeds")), _val(data.get("cost_basis")), gain)
+            if data.get("total_gain_loss") is not None:
+                gain = _val(data.get("total_gain_loss"))
+            elif data.get("total_proceeds") is not None:
+                gain = _val(data.get("total_proceeds")) - _val(data.get("total_cost_basis"))
+            else:
+                # Fall back to summing individual transactions
+                txns = data.get("transactions", {})
+                txn_list = txns.get("value", []) if isinstance(txns, dict) else txns or []
+                gain = sum(float(t.get("gain_or_loss") or 0) for t in txn_list if isinstance(t, dict))
+            logger.debug("  %s: gain=%.2f", ft, gain)
             capital_gains += gain
 
         elif ft == "1099-R":
@@ -82,7 +94,13 @@ async def aggregate_tax_data(db: AsyncSession) -> TaxReturn:
             federal_withheld += _val(data.get("federal_tax_withheld"))
 
         elif ft == "1099-DA":
-            capital_gains += _val(data.get("proceeds")) - _val(data.get("cost_basis"))
+            if data.get("total_gain_loss") is not None:
+                gain = _val(data.get("total_gain_loss"))
+            else:
+                txns = data.get("transactions", {})
+                txn_list = txns.get("value", []) if isinstance(txns, dict) else txns or []
+                gain = sum(float(t.get("gain_or_loss") or 0) for t in txn_list if isinstance(t, dict))
+            capital_gains += gain
             federal_withheld += _val(data.get("federal_tax_withheld"))
 
     total_income = wages + interest_income + ordinary_dividends + nonemployee_comp + capital_gains + other_income
@@ -111,7 +129,7 @@ async def aggregate_tax_data(db: AsyncSession) -> TaxReturn:
     tax_return = tr_result.scalars().first()
 
     if tax_return is None:
-        tax_return = TaxReturn(tax_year=2024, status="draft", data_json=json.dumps(aggregated))
+        tax_return = TaxReturn(tax_year=2025, status="draft", data_json=json.dumps(aggregated))
         db.add(tax_return)
     else:
         existing = json.loads(tax_return.data_json) if tax_return.data_json else {}

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { taxReturn } from '@/lib/api'
-import type { CalcResult, StatusComparison, CreditsResult } from '@/lib/api'
+import type { CalcResult, StateTaxResult } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 
 const fmt = (n: number) =>
@@ -18,8 +18,8 @@ const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 export default function CalculatePage() {
   const t = useTranslations('calculate')
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null)
-  const [comparison, setComparison] = useState<StatusComparison | null>(null)
-  const [credits, setCredits] = useState<CreditsResult | null>(null)
+
+
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [error, setError] = useState('')
 
@@ -59,11 +59,30 @@ export default function CalculatePage() {
         </div>
         {calcResult && (
           <div className="border border-border rounded-lg p-4 space-y-4 text-sm">
+            {/* Income Summary */}
+            <div className="grid grid-cols-3 gap-3">
+              <Stat label={t('totalIncome')} value={fmt(calcResult.total_income)} />
+              <Stat label={t('wages')} value={fmt(calcResult.wages)} />
+              <Stat label={t('capitalGains')} value={fmt(calcResult.capital_gains)} />
+            </div>
+            <hr className="border-border" />
+            {/* Refund / Amount Due */}
+            <div className={`rounded-md px-4 py-3 text-center ${calcResult.refund >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+              <p className="text-xs text-muted-foreground mb-0.5">
+                {calcResult.refund >= 0 ? t('estimatedRefund') : t('amountDue')}
+              </p>
+              <p className={`text-2xl font-bold tabular-nums ${calcResult.refund >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {fmt(Math.abs(calcResult.refund))}
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Stat label={t('federalTax')} value={fmt(calcResult.federal_tax)} />
-              <Stat label={t('effectiveRate')} value={pct(calcResult.effective_rate)} />
+              <Stat label={t('withheld')} value={fmt(calcResult.federal_tax_withheld)} />
+              {calcResult.effective_rate != null && (
+                <Stat label={t('effectiveRate')} value={pct(calcResult.effective_rate)} />
+              )}
             </div>
-            {calcResult.brackets.length > 0 && (
+            {(calcResult.brackets ?? []).length > 0 && (
               <div>
                 <p className="text-xs text-muted-foreground mb-2">{t('bracketBreakdown')}</p>
                 <div className="space-y-1">
@@ -76,7 +95,7 @@ export default function CalculatePage() {
                 </div>
               </div>
             )}
-            {Object.keys(calcResult.credits).length > 0 && (
+            {Object.keys(calcResult.credits ?? {}).length > 0 && (
               <div>
                 <p className="text-xs text-muted-foreground mb-2">{t('creditsApplied')}</p>
                 <div className="space-y-1">
@@ -95,8 +114,18 @@ export default function CalculatePage() {
         )}
       </section>
 
-      {/* Filing Status Comparison */}
-      <section className="space-y-3">
+      {/* State Tax */}
+      {calcResult && Object.keys(calcResult.states ?? {}).length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">{t('stateTax')}</h2>
+          {Object.entries(calcResult.states).map(([code, s]) => (
+            <StateTaxCard key={code} stateCode={code} result={s} fmt={fmt} pct={pct} t={t} />
+          ))}
+        </section>
+      )}
+
+      {/* Filing Status Comparison — hidden */}
+      {false && <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">{t('compareStatuses')}</h2>
           <Button
@@ -130,42 +159,51 @@ export default function CalculatePage() {
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
-      {/* Credits */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">{t('checkCredits')}</h2>
-          <Button
-            size="sm"
-            disabled={loading.credits}
-            onClick={() => run('credits', taxReturn.checkCredits, setCredits)}
-          >
-            {loading.credits ? t('checking') : t('checkCredits')}
-          </Button>
-        </div>
-        {credits && (
-          <div className="border border-border rounded-lg p-4 text-sm space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">{t('totalEligible')}</span>
-              <span className="tabular-nums font-semibold">{fmt(credits.total)}</span>
-            </div>
-            {credits.eligible.length > 0 && (
-              <div className="space-y-1">
-                {credits.eligible.map((c, i) => (
-                  <div key={i} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{c.name}</span>
-                    <span className="tabular-nums">{fmt(c.amount)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {credits.eligible.length === 0 && (
-              <p className="text-xs text-muted-foreground">{t('noCredits')}</p>
-            )}
-          </div>
+    </div>
+  )
+}
+
+function StateTaxCard({
+  stateCode,
+  result,
+  fmt,
+  pct,
+  t,
+}: {
+  stateCode: string
+  result: StateTaxResult
+  fmt: (n: number) => string
+  pct: (n: number) => string
+  t: (key: string) => string
+}) {
+  if (result.no_income_tax) {
+    return (
+      <div className="border border-border rounded-lg p-4 text-sm">
+        <p className="font-medium mb-1">{stateCode}</p>
+        <p className="text-xs text-muted-foreground">{t('noStateTax')}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="border border-border rounded-lg p-4 space-y-3 text-sm">
+      <p className="font-medium">{stateCode}</p>
+      <div className={`rounded-md px-4 py-2.5 text-center ${result.refund >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+        <p className="text-xs text-muted-foreground mb-0.5">
+          {result.refund >= 0 ? t('estimatedRefund') : t('amountDue')}
+        </p>
+        <p className={`text-xl font-bold tabular-nums ${result.refund >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          {fmt(Math.abs(result.refund))}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Stat label={t('stateTaxLabel')} value={fmt(result.state_tax)} />
+        <Stat label={t('withheld')} value={fmt(result.state_tax_withheld)} />
+        {result.effective_rate > 0 && (
+          <Stat label={t('effectiveRate')} value={pct(result.effective_rate)} />
         )}
-      </section>
+      </div>
     </div>
   )
 }

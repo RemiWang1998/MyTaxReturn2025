@@ -63,7 +63,11 @@ export const taxReturn = {
   summary: () => request<TaxSummary>("/api/return/summary"),
   update: (data: Record<string, unknown>) =>
     request<TaxReturn>("/api/return", { method: "PUT", body: JSON.stringify(data) }),
-  calculate: () => request<CalcResult>("/api/return/calculate", { method: "POST" }),
+  calculate: () =>
+    request<{ federal: Omit<CalcResult, 'federal_tax_withheld' | 'refund' | 'states' | 'total_income' | 'wages' | 'capital_gains'>; federal_tax_withheld: number; refund: number; states: Record<string, StateTaxResult>; total_income: number; wages: number; capital_gains: number }>(
+      "/api/return/calculate",
+      { method: "POST", body: "{}" }
+    ).then((r) => ({ ...r.federal, federal_tax_withheld: r.federal_tax_withheld, refund: r.refund, states: r.states, total_income: r.total_income, wages: r.wages, capital_gains: r.capital_gains })),
   compareStatus: () => request<StatusComparison>("/api/return/compare-status", { method: "POST" }),
   checkCredits: () => request<CreditsResult>("/api/return/check-credits", { method: "POST" }),
 };
@@ -115,11 +119,25 @@ export interface TaxSummary {
   estimated_refund: number;
 }
 
+export interface StateTaxResult {
+  state_tax: number;
+  effective_rate: number;
+  no_income_tax: boolean;
+  state_tax_withheld: number;
+  refund: number;
+}
+
 export interface CalcResult {
   federal_tax: number;
   effective_rate: number;
   brackets: { rate: number; amount: number }[];
   credits: Record<string, number>;
+  federal_tax_withheld: number;
+  refund: number;
+  states: Record<string, StateTaxResult>;
+  total_income: number;
+  wages: number;
+  capital_gains: number;
 }
 
 export interface StatusComparison {
