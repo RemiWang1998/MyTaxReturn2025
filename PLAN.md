@@ -225,7 +225,7 @@ The `irs-taxpayer-mcp` server runs as a sidecar Node.js process. The backend com
 - ✅ All SQLAlchemy models + initial schema creation
 - ✅ `main.py` with CORS, lifespan, router mounting
 - ✅ `services/llm_factory.py` — create LLM from stored keys
-- ⬜ `routers/api_keys.py` — full CRUD
+- ✅ `routers/api_keys.py` — full CRUD
 
 ### Phase 3: Document Upload & Parsing ✅
 - ✅ `routers/documents.py` — upload with validation, ZIP handling
