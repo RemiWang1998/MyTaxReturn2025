@@ -130,7 +130,6 @@ Rules:
 - "covered" is a boolean (true = covered security, false = noncovered); use null if absent
 - For summary totals: if a printed summary exists use it; otherwise compute from the transactions list
 - If a field is absent or not derivable, use {"value": null, "confidence": 0.0}
-- The document may be in English or Chinese — extract values regardless of language
 - Return ONLY the JSON object, no markdown fences or other text
 """
 
